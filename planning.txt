@@ -1,0 +1,23 @@
+165 moves to implement
+    - Pull each move from API, including [Name, ID, Power, Accuraccy, Type, PP, Dmg_Class, flavor_text]
+    - Read from flavor text to determine what to implement, and code them each 1 by 1
+    
+151 pokemon to implement
+    - Pull data from API, including [Name, ID, [Abilities], chance_female, 
+    - For each ability:
+        * check if it's on the list of finished abilites, if sp skip rest
+        * Add it to the list, requesting the data above
+        * Mark that it is on the list
+    - Pull sprite and shiny sprite
+    
+Implement Capturing System
+    - Every day/hour different location
+    - Limit to cap rate
+    
+Implement Battle System
+    - Watered down, based on stats
+    - Using PMS
+    - Possibly Gyms?
+
+Implement Trading
+    - Should be easy
