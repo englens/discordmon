@@ -48,12 +48,14 @@ def fetch_kanto_locations():
 def get_loc_areas(loc):
     return [requests.get(area['url']).json() for area in loc['areas']]
     
+#get the ids of pokemon, with assosiated level ranges and chances
 def get_area_gen1_pokemon_data(area):
     names = [a['pokemon']['name'] for a in area['pokemon_encounters']]
     ids = [a['pokemon']['url'][34:-1] for a in area['pokemon_encounters']]
     encounter_list = [a['version_details'][0]['encounter_details'] for a in area['pokemon_encounters']]
-    #finish this: it should be a list of tuple of tuples. each list element represents a diferent pokemon,
-    #each element of the outer tuple is a different encounter type, each inner tuple is the (min, max) level for that encounter
-    level_ranges = [(e['max_level'], e['min_level']) for e in encounter_list]
-    return level_ranges
-ranges = get_area_gen1_pokemon_data(get_loc_areas(fetch_kanto_locations()[0])[0])
+    #list of list of tuples: pokemon in the area, 
+    encounter_data = [[(encounter_type['max_level'], encounter_type['min_level']) for encounter_type in poke_encounter] for poke_encounter in encounter_list]
+    range_chances = [
+    return zip(ids, level_ranges)
+    
+names, ranges = get_area_gen1_pokemon_data(get_loc_areas(fetch_kanto_locations()[0])[0])
