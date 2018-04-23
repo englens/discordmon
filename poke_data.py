@@ -5,6 +5,22 @@ and local copies of the data."""
 url = 'http://pokeapi.co/api/v2/'
 pokemon_path = './data/pokemon_reference/'
 #grab all a pokemon's data
+
+def choose_weighted(list, weights):
+    total = sum(weights) - 1
+    summed_weights = []
+    running_total = 0
+    #make a list of each weight+everything below it.
+    for w in weights:
+        running_total += w
+        summed_weights.append(running_total)
+    #choose a number between 0 and total
+    choice = random.randint(0,total)
+    for  i in xrange(len(weights)):
+        if choice < summed_weights[i] and choice >= summed_weights[i]-weights[i]:
+            return list[i]
+    print('error: choose_weighted fucked up')
+    
 def fetch_poke(name):
     return requests.get(url+'pokemon/'+str(name)).json()
 
@@ -54,8 +70,15 @@ def get_area_gen1_pokemon_data(area):
     ids = [a['pokemon']['url'][34:-1] for a in area['pokemon_encounters']]
     encounter_list = [a['version_details'][0]['encounter_details'] for a in area['pokemon_encounters']]
     #list of list of tuples: pokemon in the area, 
-    encounter_data = [[(encounter_type['max_level'], encounter_type['min_level']) for encounter_type in poke_encounter] for poke_encounter in encounter_list]
-    range_chances = [
-    return zip(ids, level_ranges)
+    level_ranges = [[(encounter_type['max_level'], encounter_type['min_level']) for encounter_type in poke_encounter] for poke_encounter in encounter_list]
+    range_chances = [[encounter_type['chance'] for encounter_type in poke_encounter] for poke_encounter in encounter_list]
+    return ids, level_ranges, range_chances
     
-names, ranges = get_area_gen1_pokemon_data(get_loc_areas(fetch_kanto_locations()[0])[0])
+#takes in list of poke ids and encounter chances, returns id and level, weighted correctly
+def encounter_chance_picker(ids, encounter_chances):
+    #find max chance for each poke
+    maxes = [max(a) for a in encounter_chances]
+    #pick the correct pokemon, then the correct encounter, then the correct level, weighted
+    
+    
+ids, ranges, chances = get_area_gen1_pokemon_data(get_loc_areas(fetch_kanto_locations()[0])[0])

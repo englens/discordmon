@@ -1,5 +1,5 @@
-
- version_id = 1
+import poke_data
+version_id = 1
 class Pokemon:
     """An instance of a type of pokemon. In addition to
     the class stores data on its current attributes, moves, and owner.
