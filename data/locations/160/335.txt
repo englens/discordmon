@@ -1,0 +1,1 @@
+{"game_index": 0, "name": "pokemon-tower-2f", "encounter_method_rates": [], "location": {"url": "https://pokeapi.co/api/v2/location/160/", "name": "pokemon-tower"}, "pokemon_encounters": [], "id": 335, "names": [{"name": "2F", "language": {"url": "https://pokeapi.co/api/v2/language/9/", "name": "en"}}]}
