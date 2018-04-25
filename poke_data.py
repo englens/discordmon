@@ -61,12 +61,33 @@ def get_poke_name(id):
     poke = get_poke(id)
     return poke['name']
     
-def get_poke_moves_lvlup(id):
+def get_poke_kanto_moves(id):
     poke = get_poke(id)
     moves = poke['moves']
-    names = [move['move']['name'] for move in moves]
+    kanto_moves = []
+    for move in moves:
+        for version in move['version_group_details']:
+            if version['version_group']['name'] == 'firered-leafgreen':
+                kanto_moves.append([move['move']['name'], version['move_learn_method']['name'], version['level_learned_at']])
+    return kanto_moves
+
+
+def get_egg_moves(id):
+    moves = get_poke_kanto_moves(id)
+    return [move for move in moves if move[1] == 'egg']
     
+def get_levelup_moves(id):
+    moves = get_poke_kanto_moves(id)
+    return [move for move in moves if move[1] == 'level-up']
     
+def get_machine_moves(id):
+    moves = get_poke_kanto_moves(id)
+    return [move for move in moves if move[1] == 'machine']
+
+def get_tutor_moves(id):
+    moves = get_poke_kanto_moves(id)  
+    return [move for move in moves if move[1] == 'tutor']
+
 #get all data about all areas in a location
 def fetch_loc_areas(loc):
     return [requests.get(area['url']).json() for area in loc['areas']]
