@@ -52,7 +52,7 @@ def get_move_list(pokemon):
     return [move['move']['name'] for move in pokemon['moves']]
 
 #find all api stats for given poke id, from local storage        
-def get_poke_stats(id):
+def get_stats(id):
     poke = get_poke(id)
     return [stat['base_stat'] for stat in poke['stats']]
 
