@@ -18,13 +18,13 @@ class Pokemon:
         self.ivs   = [random.randint(0,31) for a in xrange(6)]
 
     def __str__(self):
-        output =    'ID:    ' + str(self.id) +
-                    '\nOwner: ' + str(self.owner) +
-                    '\nName:  ' + str(self.name) +
-                    '\nMoves: ' + str(self.moves) +
-                    '\nLevel: ' + str(self.level) +
-                    '\nEVs:   ' + str(self.evs) +
-                    '\nIVs:   ' + str(self.ivs)
+        output =  'ID:    '   + str(self.id)
+        output += '\nOwner: ' + str(self.owner)
+        output += '\nName:  ' + str(self.name)
+        output += '\nMoves: ' + str(self.moves)
+        output += '\nLevel: ' + str(self.level)
+        output += '\nEVs:   ' + str(self.evs)
+        output += '\nIVs:   ' + str(self.ivs)
         return output
         
     #return an instance of given pokemon at default stats and level for the given area
