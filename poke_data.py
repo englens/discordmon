@@ -27,10 +27,11 @@ def write_areas(areas):
 
 #write area data to file, must provide
 def write_area(area):
-    location = area['location']['url'][35:-1]
+    #location = area['location']['url'][35:-1]
     id = area['id']
     print('working on:' + str(area['name']))
-    filename = location_path+str(location)+'/'+str(id)+'.txt'
+    #filename = location_path+str(location)+'/'+str(id)+'.txt'
+    filename = location_path+str(id)+'.txt'
     #create file if it doesn't exist. Found this script on StackExchange :-)
     if not os.path.exists(os.path.dirname(filename)):
         try:
@@ -44,6 +45,11 @@ def write_area(area):
 #grab pokemon data from local storage, must use id
 def get_poke(id):
     with open(pokemon_path+str(id)+'.txt') as f:
+        data = json.load(f)
+    return data
+
+def get_area(id):
+    with open(location_path+str(id)+'.txt') as f:
         data = json.load(f)
     return data
 
@@ -88,24 +94,35 @@ def get_tutor_moves(id):
     moves = get_poke_kanto_moves(id)  
     return [move for move in moves if move[1] == 'tutor']
 
-#get all data about all areas in a location
-def fetch_loc_areas(loc):
-    return [requests.get(area['url']).json() for area in loc['areas']]
-
 #returns name of location area exists in
 def get_area_loc_name(area):
     return area['location']
 
 #get the ids of pokemon, with assosiated level ranges and chances
-def get_area_gen1_pokemon_data(area):
-    names = [a['pokemon']['name'] for a in area['pokemon_encounters']]
-    ids = [a['pokemon']['url'][34:-1] for a in area['pokemon_encounters']]
-    encounter_list = [a['version_details'][0]['encounter_details'] for a in area['pokemon_encounters']]
+def get_area_gen1_pokemon_data(area_id):
+    area = get_area(area_id)
+    #ids = [a['pokemon']['url'][34:-1] for a in area['pokemon_encounters']]
+    ids = []
+    encounter_list = []
+    for poke in area['pokemon_encounters']:
+        for version in poke['version_details']:
+            if version['version']['name'] == 'red' or version['version']['name'] == 'blue':
+                #this is a valid poke. record this encounter and this poke, and check next poke
+                encounter_list.append(version['encounter_details'])
+                ids.append(poke['pokemon']['url'][34:-1])
+                break;
+            #if no version in version details is a gen1 remake, this pokemon is not valid and not added.
+            #also, only the first valid version is added (thanks to the break)
+    #encounter_list = [a['version_details'][0]['encounter_details'] for a in area['pokemon_encounters']]
     #list of list of tuples: pokemon in the area, 
     level_ranges = [[(encounter_type['min_level'], encounter_type['max_level']) for encounter_type in poke_encounter] for poke_encounter in encounter_list]
     range_chances = [[encounter_type['chance'] for encounter_type in poke_encounter] for poke_encounter in encounter_list]
     return ids, level_ranges, range_chances
 
+#get all data about all areas in a location
+def fetch_loc_areas(loc):
+    return [requests.get(area['url']).json() for area in loc['areas']]
+    
 #grab api data for a particular move
 def fetch_move(name):
     return requests.get(url+'move/'+str(name)).json()
