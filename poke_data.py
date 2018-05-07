@@ -5,7 +5,7 @@ and local copies of the data."""
 url = 'http://pokeapi.co/api/v2/'
 pokemon_path = './data/pokemon_reference/'
 location_path = './data/locations/'
-
+FISH_REDUCTION = 4 #divided by this number
 
 
 #write specific pokemon to storage, stored as <id>.txt
@@ -17,7 +17,7 @@ def write_pokemon_reference(name):
 
 #write every kanto pokemon to storage
 def write_all_pokemon_reference():
-    for i in xrange(1,151):
+    for i in range(1,151):
         write_pokemon(i)
 
 #write a list of areas to files 
@@ -47,7 +47,20 @@ def get_poke(id):
     with open(pokemon_path+str(id)+'.txt') as f:
         data = json.load(f)
     return data
-
+    
+def  fetch_species(id):
+    poke = get_poke(id)
+    url = poke['species']['url']
+    return requests.get(url).json()
+    
+def get_random_word():
+    with open('./data/medium_words.txt', 'r') as f:
+        words = [line.rstrip() for line in f]
+    return random.choice(words).title()
+def get_poke_abilites(id):
+    poke = get_poke(id)
+    return [ability['ability']['name'] for ability in poke['abilities'] if ability['is_hidden'] == False]
+    
 def get_area(id):
     with open(location_path+str(id)+'.txt') as f:
         data = json.load(f)
@@ -76,8 +89,7 @@ def get_poke_kanto_moves(id):
             if version['version_group']['name'] == 'firered-leafgreen':
                 kanto_moves.append([move['move']['name'], version['move_learn_method']['name'], version['level_learned_at']])
     return kanto_moves
-
-
+    
 def get_egg_moves(id):
     moves = get_poke_kanto_moves(id)
     return [move for move in moves if move[1] == 'egg']
@@ -95,8 +107,8 @@ def get_tutor_moves(id):
     return [move for move in moves if move[1] == 'tutor']
 
 #returns name of location area exists in
-def get_area_loc_name(area):
-    return area['location']
+def get_area_loc_name(id):
+    return get_area(id)['location']['name']
 
 #get the ids of pokemon, with assosiated level ranges and chances
 def get_area_gen1_pokemon_data(area_id):
@@ -106,7 +118,7 @@ def get_area_gen1_pokemon_data(area_id):
     encounter_list = []
     for poke in area['pokemon_encounters']:
         for version in poke['version_details']:
-            if version['version']['name'] == 'red' or version['version']['name'] == 'blue':
+            if version['version']['name'] == 'firered' or version['version']['name'] == 'leafgreen':
                 #this is a valid poke. record this encounter and this poke, and check next poke
                 encounter_list.append(version['encounter_details'])
                 ids.append(poke['pokemon']['url'][34:-1])
@@ -116,13 +128,32 @@ def get_area_gen1_pokemon_data(area_id):
     #encounter_list = [a['version_details'][0]['encounter_details'] for a in area['pokemon_encounters']]
     #list of list of tuples: pokemon in the area, 
     level_ranges = [[(encounter_type['min_level'], encounter_type['max_level']) for encounter_type in poke_encounter] for poke_encounter in encounter_list]
-    range_chances = [[encounter_type['chance'] for encounter_type in poke_encounter] for poke_encounter in encounter_list]
+    range_chances = []
+    for poke_encounter in encounter_list:
+        types = []
+        for type in poke_encounter:
+            if type['method']['name'] not in ['old-rod', 'good-rod']:
+                types.append(int(type['chance']))
+        range_chances.append(types)
+    #range_chances = [[encounter_type['chance'] for encounter_type in poke_encounter] for poke_encounter in encounter_list]
     return ids, level_ranges, range_chances
+
+def fetch_picture(id):
+    with open('./data/pictures/male/'+str(id)+'.png', 'wb+') as handle:
+        response = requests.get('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'+str(id)+'.png', stream=True)
+        if not response.ok:
+            print(response)
+
+        for block in response.iter_content(1024):
+            if not block:
+                break
+
+            handle.write(block)
 
 #get all data about all areas in a location
 def fetch_loc_areas(loc):
     return [requests.get(area['url']).json() for area in loc['areas']]
-    
+
 #grab api data for a particular move
 def fetch_move(name):
     return requests.get(url+'move/'+str(name)).json()
@@ -155,12 +186,12 @@ def choose_weighted(weights):
         summed_weights.append(running_total)
     #choose a number between 0 and total
     choice = random.randint(0,total)
-    for  i in xrange(len(weights)):
+    for  i in range(len(weights)):
         if choice < summed_weights[i] and choice >= summed_weights[i]-weights[i]:
             return i
     print('error: choose_weighted fucked up')
 
-#takes in list of poke ids and encounter chances (from get_area_gen1_poke_data()), returns id and level, weighted correctly
+#takes in list of poke  ids and encounter chances (from get_area_gen1_poke_data()), returns id and level, weighted correctly
 def encounter_chance_picker(ids, level_ranges, encounter_chances):
     #find max chance for each poke
     sums = [sum(a) for a in encounter_chances]
@@ -168,5 +199,3 @@ def encounter_chance_picker(ids, level_ranges, encounter_chances):
     range = level_ranges[index][choose_weighted(encounter_chances[index])]
     level = random.randint(range[0], range[1])
     return ids[index], level
-
-#ids, ranges, chances = get_area_gen1_pokemon_data(fetch_loc_areas(fetch_kanto_locations()[0])[0])
