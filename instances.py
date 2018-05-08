@@ -10,13 +10,13 @@ natures = ['hardy','lonely','brave','adamant','naughty','bold','docile','relaxed
            'mild','quiet','bashful','rash','calm','gentle','sassy','careful','quirky']
 pic_file       = './data/pictures/male/'
 pic_file_shiny = './data/pictures/maleshiny'
-player_path    = './data/players/'
+player_path    = '../players/'
         
 class Pokemon:
     """An instance of a type of pokemon. In addition to
     the class stores data on its current attributes, moves, and owner.
     """
-    def __init__(self, id, owner, moves, ability, nature, name=None, level=1, xp=0 evs=[0,0,0,0,0,0], ivs=None, is_shiny=True, gender=None):
+    def __init__(self, id, owner, moves, ability, nature, name=None, level=1, xp=0, evs=[0,0,0,0,0,0], ivs=None, is_shiny=True, gender=None):
         self.id = id
         self.owner = owner
         self.name = name
@@ -97,7 +97,14 @@ class Pokemon:
         
     def get_xp_next_level(self):
         return exp_for_level(self.level+1, get_poke_growth_type(self.id))
-
+    
+    def add_xp(self, deltaxp):
+        self.xp += deltaxp
+        while self.xp >= self.get_xp_next_level():
+            diff = self.xp - self.get_xp_next_level()
+            self.level += 1
+            self.xp = diff
+            
     def str_moves(self):
         output = ''
         if self.moves == []:

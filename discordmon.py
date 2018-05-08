@@ -4,10 +4,12 @@ cooldown = 3600 #seconds, == 1 hour
 exits = ['exit', 'e x i t', 'c', 'cancel', 'exiT', '"exit"', ';exit', ';cancel', 'close', 'exit\\']
 client = discord.Client()
 prefix = ';'
-locations = [name[:-4] for name in os.listdir('./data/locations/')]
-players = [name[:-4] for name in os.listdir('./data/players/')]
+
+player_path    = '../players/'
 timestamp_file = './data/timestamps.txt'
 currloc_file = './data/currloc.txt'
+locations = [name[:-4] for name in os.listdir('./data/locations/')]
+players = [name[:-4] for name in os.listdir(player_path)]
 players_in_session = []
 PC_TIMEOUT = 60
 HOURS_LOC_DELAY = 6
@@ -265,7 +267,7 @@ async def show_loc(message):
 #check if user registered, if not let them know to register    
 async def is_player(message):
     global players
-    players = [name[:-4] for name in os.listdir('./data/players/')]
+    players = [name[:-4] for name in os.listdir(player_path)]
     if message.author.id in players:
         return True
     else:

@@ -1,1 +1,0 @@
-{"id": "223255754793156608", "name": "Oliver", "boxes": [{"name": "Absent", "pokemon": [{"id": "194", "owner": "WILD", "moves": ["slam", "tail-whip", "water-gun"], "ability": "water-absorb", "nature": "careful", "name": "wooper", "level": 15, "evs": [0, 0, 0, 0, 0, 0], "ivs": [27, 16, 5, 2, 9, 6], "is_shiny": false, "gender": "Unset"}]}], "party": []}
