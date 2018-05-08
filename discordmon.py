@@ -1,4 +1,4 @@
-import discord, os, instances, datetime, random, json, time, datetime
+import discord, os, instances, datetime, random, json, time, datetime, asyncio
 from poke_data import *
 cooldown = 3600 #seconds, == 1 hour
 exits = ['exit', 'e x i t', 'c', 'cancel', 'exiT', '"exit"', ';exit', ';cancel', 'close', 'exit\\']
@@ -316,8 +316,18 @@ async def get_location(return_timeleft=False):
         return stored_loc['loc'], HOURS_LOC_DELAY - (curr_time.hour - stored_loc['hour']) - 1
     return stored_loc['loc']
 
+def run_client(client, *args, **kwargs):
+    loop = asyncio.get_event_loop()
+    while True:
+        try:
+            loop.run_until_complete(client.start(*args, **kwargs))
+        except Exception as e:
+            print("Error", e)  # or use proper logging
+        print("Waiting until restart")
+        time.sleep(1000)
+
 with open('../key.txt', 'r') as f:
     key = f.read() 
-client.run(key)
-
+#client.run(key)
+run_client(client, key)
 

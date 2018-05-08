@@ -11,18 +11,14 @@ natures = ['hardy','lonely','brave','adamant','naughty','bold','docile','relaxed
 pic_file       = './data/pictures/male/'
 pic_file_shiny = './data/pictures/maleshiny'
 player_path    = './data/players/'
-
-def exp_for_level(level):
-    return int((5*level**3)/4) #slow
-
+        
 class Pokemon:
     """An instance of a type of pokemon. In addition to
     the class stores data on its current attributes, moves, and owner.
     """
-    def __init__(self, id, owner, moves, ability, nature, name=None, level=1, evs=None, ivs=None, is_shiny=True, gender=None):
+    def __init__(self, id, owner, moves, ability, nature, name=None, level=1, xp=0 evs=[0,0,0,0,0,0], ivs=None, is_shiny=True, gender=None):
         self.id = id
         self.owner = owner
-        
         self.name = name
         self.moves = moves
         self.ability = ability
@@ -32,18 +28,13 @@ class Pokemon:
         else:
             self.name = name
         self.level = level
-        if evs is None:
-            self.evs   = [0, 0, 0, 0, 0, 0]
-        else:
-            self.evs = evs
+        self.xp = xp
+        self.evs = evs
         if ivs is None:
             self.ivs   = [random.randint(0,31) for a in range(6)]
         else:
             self.ivs = ivs
-        if is_shiny == None:
-            self.is_shiny = False
-        else:
-            self.is_shiny = is_shiny
+        self.is_shiny = is_shiny
         if gender==None:
             self.gender = 'Unset'
         else:
@@ -54,7 +45,7 @@ class Pokemon:
             return pic_file_shiny  + str(self.id)+'.png'
         else:
             return pic_file + str(self.id)+'.png'
-            
+        
     def get_base_stats(self):
         return get_stats(self.id)
         
@@ -103,6 +94,9 @@ class Pokemon:
    
     def get_species(self):
         return get_poke_name(self.id)
+        
+    def get_xp_next_level(self):
+        return exp_for_level(self.level+1, get_poke_growth_type(self.id))
 
     def str_moves(self):
         output = ''
@@ -115,54 +109,12 @@ class Pokemon:
     def to_dict(self):
         return {'id':self.id,       'owner':self.owner,     'moves':self.moves, 
                 'ability':self.ability, 'nature':self.nature, 'name':self.name, 
-                'level':self.level, 'evs':self.evs, 'ivs':self.ivs, 
+                'level':self.level, 'xp':self.xp, 'evs':self.evs, 'ivs':self.ivs, 
                 'is_shiny':self.is_shiny, 'gender':self.gender}
         
     #Basic overview of pokemon-- Name+Level
     def __str__(self):
         return str(self.name) + ', Lvl ' + str(self.level)
-
-#return an instance of given pokemon at default level for the given area
-def make_for_encounter(location_area_index):
-    #the level of the pokemon is based off the area the pokemon was found in. 
-    ids, level_range, chances = get_area_gen1_pokemon_data(location_area_index)
-    ids.append((0))
-    level_range.append([(0,0)])
-    chances.append([MISS_CHANCE])
-    id, level = encounter_chance_picker(ids, level_range, chances)
-    if id != 0:
-        level_moves = get_levelup_moves(id)
-        starter_moves = [move for move in level_moves if int(move[2]) <= level]
-        minimum = 0
-        while len(starter_moves) > 4:
-            minimum = min([move[2] for move in starter_moves])
-            starter_moves = [move for move in starter_moves if move[2] != minimum]
-        moves = [move[0] for move in starter_moves]
-        abilites = get_poke_abilites(id)
-        if abilites == []:
-            ability = None
-        else:
-            ability = random.choice(abilites)
-        nature = random.choice(natures)
-        
-        is_shiny = random.randint(1,SHINY_CHANCE) == 1
-        gender = 'Unset'
-        return Pokemon(id, 'WILD', moves, ability, nature, level=level, is_shiny=is_shiny)
-    return None
-
-def read_pokedict(dic):
-    id = dic['id']
-    owner = dic['owner']
-    moves = dic['moves']
-    ability = dic['ability']
-    nature = dic['nature']
-    name  = dic['name']
-    level = dic['level']
-    evs = dic['evs']
-    ivs = dic['ivs']
-    is_shiny = dic['is_shiny']
-    gender = dic['gender']
-    return Pokemon(id, owner, moves, ability, nature, name=name, level=level, evs=evs, ivs=ivs, is_shiny=is_shiny, gender=gender)
 
 class Box:
     """Box of pokemon. Contains Page name, and 25 pokemon slots.
@@ -207,11 +159,6 @@ class Box:
     #recursive
     def to_dict(self):
         return {'name':self.name, 'pokemon':[poke.to_dict() for poke in self.pokemon if poke is not None]}
-
-def read_boxdict(dic):
-    name = dic['name']
-    pokemon = [read_pokedict(poke) for poke in dic['pokemon']]
-    return Box(name, pokemon)
     
 class Player: 
     """Representation of a player. Includes methods for saving and reading from files.
@@ -262,12 +209,87 @@ def read_playerfile(id):
     party = [read_pokedict(poke) for poke in data['party']]
     return Player(id, name, boxes, party)
     
+def read_boxdict(dic):
+    name = dic['name']
+    pokemon = [read_pokedict(poke) for poke in dic['pokemon']]
+    return Box(name, pokemon)
+    
 def array_string_safe(array):
     output = '['
     for item in array:
         output += str(item) + '|'
     return output[:-1] + ']'
     
+def read_pokedict(dic):
+    id = dic['id']
+    owner = dic['owner']
+    moves = dic['moves']
+    ability = dic['ability']
+    nature = dic['nature']
+    name  = dic['name']
+    level = dic['level']
+    evs = dic['evs']
+    ivs = dic['ivs']
+    is_shiny = dic['is_shiny']
+    gender = dic['gender']
+    try:
+        xp = dic['xp']
+    except Exception:
+        xp = 0
+    return Pokemon(id, owner, moves, ability, nature, name=name, level=level, xp=0, evs=evs, ivs=ivs, is_shiny=is_shiny, gender=gender)
+
+#return an instance of given pokemon at default level for the given area
+def make_for_encounter(location_area_index):
+    #the level of the pokemon is based off the area the pokemon was found in. 
+    ids, level_range, chances = get_area_gen1_pokemon_data(location_area_index)
+    ids.append((0))
+    level_range.append([(0,0)])
+    chances.append([MISS_CHANCE])
+    id, level = encounter_chance_picker(ids, level_range, chances)
+    if id != 0:
+        level_moves = get_levelup_moves(id)
+        starter_moves = [move for move in level_moves if int(move[2]) <= level]
+        minimum = 0
+        while len(starter_moves) > 4:
+            minimum = min([move[2] for move in starter_moves])
+            starter_moves = [move for move in starter_moves if move[2] != minimum]
+        moves = [move[0] for move in starter_moves]
+        abilites = get_poke_abilites(id)
+        if abilites == []:
+            ability = None
+        else:
+            ability = random.choice(abilites)
+        nature = random.choice(natures)
+        
+        is_shiny = random.randint(1,SHINY_CHANCE) == 1
+        gender = 'Unset'
+        return Pokemon(id, 'WILD', moves, ability, nature, level=level, is_shiny=is_shiny)
+    return None
+    
 def write_player(player):
     with open(player_path+str(player.id)+'.txt', 'w') as f:
         json.dump(player.to_dict(), f)
+        
+def exp_for_level(level, mode):
+    if mode == 'slow':
+        return int((5*level**3)/4)
+    if mode == 'medium':
+        return int(level**3)
+    if mode == 'fast':
+        return int((4*level**3)/5)
+    if mode == 'medium-slow':
+        return int((6*level**3)/5 - 15*level**2 + 100*level - 140)
+    if mode == 'slow-then-very-fast':
+        if level <= 50:
+            return int((level**3*(100-level))/50)
+        if level <= 68:
+            return int((level**3*(150-level))/100)
+        if level <= 98:
+            return int((level**3*int((1911-10*level)/3))/500)
+        return int((level**3*(160-level))/100)
+    if mode == 'fast-then-very-slow':
+        if level <= 15:
+            return int(level**3*((int((n+1)/3)+24)/50))
+        if level <= 36:
+            return int(level**3*((level+14)/50))
+        return int(level**3*((int(level/2)+32)/50))

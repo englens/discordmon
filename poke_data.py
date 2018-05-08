@@ -3,8 +3,9 @@ import requests, json, random, os
 and local copies of the data."""
 
 url = 'http://pokeapi.co/api/v2/'
-pokemon_path = './data/pokemon_reference/'
-location_path = './data/locations/'
+pokemon_path   = './data/pokemon_reference/'
+location_path  = './data/locations/'
+species_path   = './data/species_reference/'
 FISH_REDUCTION = 4 #divided by this number
 
 
@@ -42,21 +43,33 @@ def write_area(area):
     with open(filename, 'w+') as f:
         f.write(json.dumps(area))
 
+def write_all_species():
+    for id in [name[:-4] for name in os.listdir(pokemon_path)]:
+        poke = get_poke(id)
+        print('working on' + str(id))
+        write_species(poke['species']['url'][42:-1])
+
+def write_species(id):
+    spec = fetch_species(id)
+    with open(species_path+str(id)+'.txt', 'w') as f:
+        json.dump(spec, f)
+
 #grab pokemon data from local storage, must use id
 def get_poke(id):
     with open(pokemon_path+str(id)+'.txt') as f:
         data = json.load(f)
     return data
     
-def  fetch_species(id):
+def get_growth_type(id):
     poke = get_poke(id)
-    url = poke['species']['url']
-    return requests.get(url).json()
+    species = poke['species']
+    return poke['growth']
     
 def get_random_word():
     with open('./data/medium_words.txt', 'r') as f:
         words = [line.rstrip() for line in f]
     return random.choice(words).title()
+    
 def get_poke_abilites(id):
     poke = get_poke(id)
     return [ability['ability']['name'] for ability in poke['abilities'] if ability['is_hidden'] == False]
@@ -137,7 +150,25 @@ def get_area_gen1_pokemon_data(area_id):
         range_chances.append(types)
     #range_chances = [[encounter_type['chance'] for encounter_type in poke_encounter] for poke_encounter in encounter_list]
     return ids, level_ranges, range_chances
+    
+def get_species(id):
+    with open(species_path+str(id)+'.txt', 'r') as f:
+        data = json.load(f)
+    return data
+  
+def get_poke_species(id):
+    poke = get_poke(id)
+    return get_species(poke['species']['url'][42:-1])
 
+def get_poke_growth_type(id):
+    spec = get_poke_species(id)
+    return spec['growth_rate']['name']
+    
+def fetch_species(id):
+    poke = get_poke(id)
+    url = poke['species']['url']
+    return requests.get(url).json()
+    
 def fetch_picture(id):
     with open('./data/pictures/male/'+str(id)+'.png', 'wb+') as handle:
         response = requests.get('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'+str(id)+'.png', stream=True)
