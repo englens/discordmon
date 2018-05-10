@@ -1,4 +1,5 @@
-import discord, os, instances, datetime, random, json, time, datetime, asyncio
+import discord, os, instances, json, asyncio
+import math, random, time, datetime
 from poke_data import *
 cooldown = 3600 #seconds, == 1 hour
 exits = ['exit', 'e x i t', 'c', 'cancel', 'exiT', '"exit"', ';exit', ';cancel', 'close', 'exit\\']
@@ -13,6 +14,7 @@ players = [name[:-4] for name in os.listdir(player_path)]
 players_in_session = []
 PC_TIMEOUT = 60
 HOURS_LOC_DELAY = 6
+WILD_FIGHT_TIME = 5 #seconds
 @client.event
 
 async def on_ready():
@@ -25,8 +27,8 @@ async def on_message(message):
         if message.content.startswith(';'):
             cmd = message.content[1:].lower()
             try:
-                if   cmd in ['catch', 'pokemon', 'p']:
-                    await catch_poke(message)
+                if   cmd in ['encounter', 'pokemon', 'p', 'e']:
+                    await encounter_poke(message)
                 elif cmd == 'join':
                     await join_member(message)
                 elif cmd == 'pc':
@@ -41,23 +43,26 @@ async def on_message(message):
                     pass
                 elif cmd in ['location', 'loc']:
                     await show_loc(message)
+                elif cmd == 'party':
+                    await show_party(message)
             except Exception as e:
                 #we catch this so it doesn't hang that user's session on error,
                 #but we still want to see what went wrong so:
+                print(type(e))
                 print(e)
         players_in_session.remove(message.author.id)  
     return
 
-async def catch_poke(message):
+async def encounter_poke(message):
     #check if current user is a player
     if not await is_player(message):
         return
     player = instances.read_playerfile(message.author.id)
     #check if the correct amount of time has passed
     with open(timestamp_file, 'r') as f:
-        data = json.load(f)
-    if player.id in data:
-        last_time = data[player.id]
+        time_data = json.load(f)
+    if player.id in time_data:
+        last_time = time_data[player.id]
         diff = int(time.time()) - last_time
         if diff < cooldown:
             remain = cooldown-diff
@@ -67,43 +72,169 @@ async def catch_poke(message):
             else:
                 await client.send_message(message.channel, 'Please wait ' + str(remain) + ' seconds(s) before catching another!')
             return
-    #set up pokemon and catch it
-    poke = instances.make_for_encounter(await get_location())
+    #-------END OF CHECKS-------        
+    #set up pokemon, and return if location contains none
+    tries = 5
+    poke = None
+    while poke == None and tries >= 0:
+        poke = instances.make_for_encounter(await get_location())
+        tries -= 1
     if poke == None:
-        await client.send_message(message.channel, 'You caught... nothing!')
+        await client.send_message(message.channel, 'You found... nothing!')
         return
+    
+    output = 'A wild ' + str(poke.name) + ' Appears!'
+    output += '\nLevel:    ' + str(poke.level)
+    await client.send_message(message.channel, output)
+    await send_pic(message, poke)
+    await client.send_message(message.channel, '----------------')
+    
+    #check if the player even has a party.
+    #if no party, always catch pokemon and never fight
+    if player.party == []:
+        await catch_poke(message, player, poke)
+        done = True
     else:
-        output = 'You caught ' + str(poke.name) + '!'
-        output += '\nLevel:    ' + str(poke.level)
-        await client.send_message(message.channel, output)
-        await send_pic(message, poke)
-        await client.send_message(message.channel, '----------------')
         done = False
-        while not done:
-            choice = await yes_or_no(message, 'Give it a name?', can_cancel=False)
-            if choice == 'y':
-                name_valid = False
-                while not name_valid:
-                    await client.send_message(message.channel, 'Please enter name for your ' + poke.name + '.')
-                    response = await client.wait_for_message(author=message.author, channel=message.channel)
-                    response = response.content.replace(',', '')
-                    response = response.replace('"', '')
-                    if len(response) > 42:
-                        await client.send_message(message.channel, 'Name too long, please pick a shorter one.')
-                    else:
-                        name_valid = True
-                poke.name = response
+    output = ''
+    while not done:
+        output += 'Catch or Fight? (c/f)'
+        await client.send_message(message.channel, output)
+        response = await client.wait_for_message(author=message.author, channel=message.channel)
+        try:
+            response = response.content.lower()
+        except Exception: #the response is in a fucky wucky format
+            output = 'Invalid Response.\n'
+        else:
+            if response == 'c':
                 done = True
-            elif choice == 'n':
+                await catch_poke(message, player, poke)
+            elif response == 'f':
                 done = True
+                await fight_poke(message, player, poke)
             else:
-                await client.send_message(message.channel, 'Invalid Response.')
-            player.add_poke(poke)
-        await client.send_message(message.channel, poke.name + ' added!')
-        data[player.id] = int(time.time())
-        with open(timestamp_file, 'w') as f:
-            json.dump(data, f)
+                output = 'Invalid Response.'
+    #player should have encountered a poke to get here
+    #update the players timeout, they will have to wait through the timeout again after
+    with open(timestamp_file, 'r') as f:
+        time_data = json.load(f)
+    time_data[player.id] = int(time.time())
+    #with open(timestamp_file, 'w') as f:
+    #    json.dump(data, f)
+    instances.write_player(player)
+async def catch_poke(message, player, poke):
+    output = 'You caught ' + str(poke.name) + '!'
+    done = False
+    while not done:
+        choice = await yes_or_no(message, 'Give it a name?', can_cancel=False)
+        if choice == 'y':
+            name_valid = False
+            while not name_valid:
+                await client.send_message(message.channel, 'Please enter name for your ' + poke.name + '.')
+                response = await client.wait_for_message(author=message.author, channel=message.channel)
+                response = response.content.replace(',', '')
+                response = response.replace('"', '')
+                if len(response) > 42:
+                    await client.send_message(message.channel, 'Name too long, please pick a shorter one.')
+                else:
+                    name_valid = True
+            poke.name = response
+            done = True
+        elif choice == 'n':
+            done = True
+        else:
+            await client.send_message(message.channel, 'Invalid Response.')
+        player.add_poke(poke)
+    await client.send_message(message.channel, poke.name + ' added!')
+    
+async def fight_poke(message, player, poke):
+    player_power = player.get_party_power()
+    diff = player_power - poke.level
+    await client.send_message(message.channel, 'Simulating Battle...')
+    await asyncio.sleep(WILD_FIGHT_TIME) #wait for dramatic tension
+    if player_power >= int(random.normalvariate(poke.level, int(math.sqrt(poke.level)))):
+        output = poke.name + ' Defeated!'
+        await client.send_message(message.channel, output)
+        await distribute_xp(message, player, poke)
+    else:
+        await client.send_message(message.channel, 'You lost the battle...')
 
+async def distribute_xp(message, player, wild_poke):
+    if player.party == []:
+        return
+    output = ''
+    xp = wild_poke.get_base_xp() * wild_poke.level
+    await client.send_message(message.channel, str(xp) + ' XP Gained!')
+    #Level pokemon 1:
+    og_level = player.party[0].level
+    if len(player.party) == 1:
+        player.party[0].add_xp(xp)
+    else:
+        player.party[0].add_xp(int(xp/2))
+        xp = int(xp/2)
+    if og_level != player.party[0].level:
+        if player.party[0].level - og_level == 1:
+            await client.send_message(message.channel, player.party[0].name + ' Leveled Up!')
+        else:
+            msg = player.party[0].name + ' Gained ('+str(player.party[0].level - og_level)+') Levels!'
+            await client.send_message(message.channel, msg)
+        await learn_new_moves(message, poke, poke.find_new_moves(og_level))
+    if len(player.party) > 1:
+        for poke in player.party[1:]:
+            og_level = poke.level
+            poke.add_xp(int(xp/len(player.party[1:])))
+            if og_level != poke.level:
+                if poke.level - og_level == 1:
+                    await client.send_message(message.channel, poke.name + ' Leveled Up!')
+                else:
+                    msg = poke.name + ' Gained ('+str(poke.level - og_level)+') Levels!'
+                    await client.send_message(message.channel, msg)
+                await learn_new_moves(message, poke, poke.find_new_moves(og_level))
+async def learn_new_moves(message, poke, moves):
+    for move in moves:
+        if len(poke.moves) < 4:
+            poke.moves.append(move)
+            client.send_message(message.channel, poke.name + ' learned ' + move)
+        else:
+            done = False
+            while not done:
+                output = poke.name + ' wants to learn <' + move + '> but '+ poke.name
+                output += 'already knows 4 moves! Should a move be forgotten to make space for ' + move + '?'
+                response = await yes_or_no(message, output)
+                if response == 'y':
+                    output = poke.name + '\'s moves:'
+                    for index, m in poke.moves:
+                        output += '\n' + str(index) + ') ' + m
+                    output += '\nWhat move will be replaced with ' + move + '?'
+                    output += '\nsay "cancel" to cancel.'
+                    client.send_message(message.channel, output)
+                    done2 = False
+                    while not done2:
+                        response2 = await wait_for_message(author=message.author, channel=message.channel).content.lower()
+                        if response2 == 'cancel':
+                            break
+                        try:
+                            index = int(response2)-1
+                        except Exception:
+                            await client.send_message(message.channel, 'Invalid Response.')
+                        else:
+                            if index > 5:
+                                await client.send_message(message.channel, 'Index out of bounds.')
+                            else:
+                                
+                                output = '1, 2 and... Poof! ' + poke.name + ' forgot '+ poke.moves[index]
+                                output += '\nand... ' + poke.name + ' learned ' + move + '!'
+                                poke.moves[index] = move
+                                await client.send_message(message.channel, output)
+                                done = True
+                                done2 = True
+                elif response == 'n':
+                    response2 = await yes_or_no(message, 'Stop learning ' + move +'?')
+                    if response2 == 'y':
+                        await client.send_message(message.channel, poke.name + ' did not learn ' + move + '.')                   
+                elif response == 'o':
+                    await client.send_message(message.channel, 'Error, Invalid Response.')
+                    
 async def join_member(message):
     if message.author.id in players:
         await client.send_message(message.channel, 'You already joined!')
@@ -125,7 +256,7 @@ async def join_member(message):
             await client.send_message(message.channel, 'Registration canceled.')
         else:
             await client.send_message(message.channel, 'Invalid response.')
-
+                    
 async def pc_wrapper(message):
     try:
         num = int(message.content.lower()[3:])
@@ -146,32 +277,37 @@ async def show_boxes(message, curr_box=0):
         await client.send_message(message.channel, 'Box index out of range. Opening Box 1.')
         curr_box = 0
     done = False
-    show_pc = True
+    disp_pc = True
+    disp_party = True
+    disp_cmds = True
+    fails = 0
     while not done:
-        if show_pc:
+        #Pc list:
+        if disp_pc:
             output = '```---- ' + player.name +'\'s PC ----'
             output +=  '\nBox ' + player.boxes[curr_box].name
             output += ' (' + str(curr_box+1) + '/' + str(len(player.boxes)) + '):\n'
             output += str(player.boxes[curr_box])
-            output += '\nCommands:'
-            output += '\n"details <index>" --- Show more details on specified pokemon'
-            if curr_box < len(player.boxes)-1:
-                output += '\n">" -- next box'
-            if curr_box > 0:
-                output += '\n"<" -- previous box'
-            output +=  '\n"exit" -- close pc'
             output += '```'
             await client.send_message(message.channel, output)
-            show_pc = False
-        else:
-            
+            disp_pc = False
+        if disp_party:
+            await client.send_message(message.channel, player.str_party())
+            disp_party = False
+        if disp_cmds:
+            #Commands:
             output = '```\nCommands:'
+            output += '\n"help" --- Show this command list'
+            output += '\n"show" --- Reshow the pc'
             output += '\n"details <index>" --- Show more details on specified pokemon'
+            output += '\n"party" --- Show current party'
+            output += '\n"take <index> <partyindex>" --- Add box pokemon at given index to party, swapping with the existing pokemon.'
+            output += '\n"deposit <partyindex>" --- deposit a pokemon into the box.'
             if curr_box < len(player.boxes)-1:
                 output += '\n">" -- next box'
             if curr_box > 0:
                 output += '\n"<" -- previous box'
-            output +=  '\n"exit" -- close pc'
+            output +=  '\n"exit" or "c" -- close pc'
             output += '```'
             await client.send_message(message.channel, output)
         response = await client.wait_for_message(author=message.author, channel=message.channel, timeout=PC_TIMEOUT)
@@ -181,10 +317,18 @@ async def show_boxes(message, curr_box=0):
                 done = True
             elif response == '>' and curr_box < len(player.boxes)-1:
                 curr_box += 1
+                disp_pc = True
             elif response == '<' and curr_box > 0:
                 curr_box -= 1
+                disp_pc = True
             elif response in exits:
                 done = True
+            elif response == 'help':
+                show_cmds = True
+            elif response == 'details':
+                disp_pc = True
+            elif response == 'party':
+                disp_party = True
             elif response.startswith('details '):
                 num = None
                 try:
@@ -196,7 +340,6 @@ async def show_boxes(message, curr_box=0):
                         await show_poke_details(message, player.boxes[curr_box].pokemon[num-1])
                     except Exception:
                         await client.send_message(message.channel, 'Invalid Index/Format.')
-                    show_pc = False
             elif response.startswith('*'):
                 num = None
                 try:
@@ -208,18 +351,64 @@ async def show_boxes(message, curr_box=0):
                         await show_poke_details(message, player.boxes[curr_box].pokemon[num-1])
                     except Exception:
                         await client.send_message(message.channel, 'Invalid Index/Format.')
-                    show_pc = False
+            elif response.startswith('take '):
+                try:
+                    params = response.split()
+                    if len(params) == 2:
+                        pc_index = int(params[1])-1
+                        party_index = len(player.party)
+                    elif len(params) == 3:
+                        pc_index = int(params[1])-1
+                        party_index = int(params[2])-1
+                    else:
+                        raise Exception
+                    
+                except Exception as e:
+                    print(e)
+                    await client.send_message(message.channel, 'Invalid Index/Format.')
+                else:
+                    if pc_index > len(player.boxes[curr_box])-1 or party_index > 5:
+                        await client.send_message(message.channel, 'Index too large!')
+                    else:
+                        if party_index > len(player.party)-1:
+                            player.party.append(player.boxes[curr_box].pop(pc_index))
+                        else:
+                            temp = player.party[party_index]
+                            player.party[party_index] = player.boxes[curr_box][pc_index]
+                            player.boxes[curr_box][pc_index] = temp
+                        disp_party = True
+                        disp_pc = True
+            elif response.startswith('deposit '):
+                try:
+                    params = response.split()
+                    party_index = int(params[1])-1
+                except Exception as e:
+                    print(e)
+                    await client.send_message(message.channel, 'Invalid Index/Format.')
+                else:
+                    if party_index > len(player.party)-1:
+                        await client.send_message(message.channel, 'Party index out of range!')
+                    else:
+                        if player.boxes[curr_box].is_full():
+                            curr_box += 1
+                        player.add_poke(player.party.pop(party_index))
+                        disp_party = True
+                        disp_pc = True
             else:
-                await client.send_message(message.channel, 'Invalid Response.')
+                fails += 1
+                if fails == 3:
+                    done = True
+            
         else:
             done = True
-    await client.send_message(message.channel, 'PC closed.')
+    await client.send_message(message.channel, player.name + '\'s PC closed.')
     instances.write_player(player)
     
 async def show_poke_details(message, poke):
     await client.send_message(message.channel, '```Details for ' + poke.name + ':```')
     await send_pic(message, poke)
     output =  '\n```Lvl ' + str(poke.level) + ' ' + poke.get_species() + ' (<Gender_Goes_Here>)'
+    output += '\n('+ str(poke.xp) + '/' + str(poke.get_xp_next_level()) + ')'
     output += '\n[' + poke.nature.title() + ']'
     output += '\nMoves:   ' + poke.str_moves()
     output += '\nAbility: ' + str(poke.ability).title()
@@ -258,12 +447,18 @@ async def quick_details(message):
         await client.send_message(message.channel, 'PC Closed.')
     except Exception:
         await client.send_message(message.channel, 'Invalid Index.')
-
+        
 async def show_loc(message):
     location_name, timeleft = await get_location(return_timeleft=True)
     location_name = get_area_loc_name(location_name)
     await client.send_message(message.channel, 'Current Location: ' + location_name.replace('-',' ').title() + '\nHours Remaining: '+str(timeleft))
-        
+
+async def show_party(message):
+    if not await is_player(message):
+        return
+    player = instances.read_playerfile(message.author.id)
+    await client.send_message(message.channel, player.str_party())
+    
 #check if user registered, if not let them know to register    
 async def is_player(message):
     global players
@@ -315,7 +510,7 @@ async def get_location(return_timeleft=False):
         with open(currloc_file, 'w') as f:
             json.dump(stored_loc,f)
     if return_timeleft:
-        return stored_loc['loc'], HOURS_LOC_DELAY - (curr_time.hour - stored_loc['hour']) - 1
+        return stored_loc['loc'], HOURS_LOC_DELAY - (curr_time.hour - stored_loc['hour'])
     return stored_loc['loc']
 
 def run_client(client, *args, **kwargs):
@@ -326,7 +521,7 @@ def run_client(client, *args, **kwargs):
         except Exception as e:
             print("Error", e)  # or use proper logging
         print("Waiting until restart")
-        time.sleep(1000)
+        time.sleep(100)
 
 with open('../key.txt', 'r') as f:
     key = f.read() 

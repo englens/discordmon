@@ -1,2 +1,0 @@
-discordmon.py
-pause

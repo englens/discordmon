@@ -5,6 +5,7 @@ version_id = 1
 MISS_CHANCE = 1
 BOX_SIZE = 25  #boxes will resize if this is reduced
 SHINY_CHANCE = 441
+XP_DIVISOR = 2
 natures = ['hardy','lonely','brave','adamant','naughty','bold','docile','relaxed',
            'impish','lax','timid','hasty','serious','jolly','naive','modest',
            'mild','quiet','bashful','rash','calm','gentle','sassy','careful','quirky']
@@ -95,16 +96,26 @@ class Pokemon:
     def get_species(self):
         return get_poke_name(self.id)
         
+    def get_base_xp(self):
+        return int(get_poke(self.id)['base_experience'])
+        
     def get_xp_next_level(self):
-        return exp_for_level(self.level+1, get_poke_growth_type(self.id))
+        return int(exp_for_level(self.level+1, get_poke_growth_type(self.id)) / XP_DIVISOR)
     
     def add_xp(self, deltaxp):
+        deltaxp = int(deltaxp)
         self.xp += deltaxp
         while self.xp >= self.get_xp_next_level():
             diff = self.xp - self.get_xp_next_level()
             self.level += 1
             self.xp = diff
-            
+        print(self.name + ' gained ' + str(deltaxp) + ' xp.')
+        print('Now at (' + str(self.xp) + '/' + str(self.get_xp_next_level()) + ')')
+    
+    def find_new_moves(self, old_lvl):
+        level_moves = get_levelup_moves(self.id)
+        return [move[0] for move in level_moves if (move[2] > old_lvl and move[2] <= self.level)]
+    
     def str_moves(self):
         output = ''
         if self.moves == []:
@@ -134,17 +145,31 @@ class Box:
         self.pokemon = pokemon
         
     def add_poke(self, poke):
-        if len(self.pokemon) >= BOX_SIZE:
+        if self.is_full():
             return False
         self.pokemon.append(poke)
         return True
     
+    def is_full(self):
+        return len(self.pokemon) >= BOX_SIZE
+        
     def remove_poke(self, index):
         if index > len(self.pokemon):
             print('Error: Invalid Index.')
             return None
         return self.pokemon.pop(index)
-
+    def __len__(self):
+        return len(self.pokemon)
+        
+    def pop(self, index):
+        return self.pokemon.pop(index)
+        
+    def __getitem__(self, key):
+        return self.pokemon[key]
+        
+    def __setitem__(self, key, value):
+        self.pokemon[key] = value
+        
     def __str__(self):
         output = '-----------------------'
         lines = []
@@ -195,11 +220,39 @@ class Player:
             #if no slots, make a new box and add the poke
             if finished==False:
                 self.boxes.append(Box(get_random_word(), [poke]))
-        write_player(self)
         
     def len_boxes(self):
         return len(boxes)
     
+    def str_party(self):
+        if self.party == []:
+            return 'Party Empty!'
+        
+        output = '```-----'+self.name+'\'s Party-----'
+        lines = []
+        for index, poke in enumerate(self.party, 1):
+            line = '\n'+ str(index) + ') ' + poke.name
+            if poke.name != get_poke_name(poke.id):
+                line += ' ('+get_poke_name(poke.id)+')'
+                if poke.is_shiny == True:
+                    line.append('*')
+            lines.append(line)
+        maximum = max([len(l) for l in lines])
+        for index, line in enumerate(lines):
+            line += ' ' * (maximum - len(line) + 1)
+            output += line
+            output += 'Lvl ' + str(self.party[index].level)
+        output += '\n-----------------------```'
+        return output
+    
+    #function to judge the power of the party. this can easily improve
+    def get_party_power(self):
+        if self.party == []:
+            return 0
+        #sum all the levels, giving leader double weight
+        total = sum([poke.level for poke in self.party]) + self.party[0].level
+        return int(total/(len(self.party)+1))
+        
     def __str__(self):
         return name
     
@@ -243,7 +296,7 @@ def read_pokedict(dic):
         xp = dic['xp']
     except Exception:
         xp = 0
-    return Pokemon(id, owner, moves, ability, nature, name=name, level=level, xp=0, evs=evs, ivs=ivs, is_shiny=is_shiny, gender=gender)
+    return Pokemon(id, owner, moves, ability, nature, name=name, level=level, xp=xp, evs=evs, ivs=ivs, is_shiny=is_shiny, gender=gender)
 
 #return an instance of given pokemon at default level for the given area
 def make_for_encounter(location_area_index):
@@ -272,7 +325,7 @@ def make_for_encounter(location_area_index):
         gender = 'Unset'
         return Pokemon(id, 'WILD', moves, ability, nature, level=level, is_shiny=is_shiny)
     return None
-    
+
 def write_player(player):
     with open(player_path+str(player.id)+'.txt', 'w') as f:
         json.dump(player.to_dict(), f)
