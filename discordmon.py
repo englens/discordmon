@@ -121,7 +121,7 @@ async def encounter_poke(message):
         time_data = json.load(f)
     time_data[player.id] = int(time.time())
     with open(timestamp_file, 'w') as f:
-        json.dump(data, f)
+        json.dump(time_data, f)
     instances.write_player(player)
     
 async def catch_poke(message, player, poke):
