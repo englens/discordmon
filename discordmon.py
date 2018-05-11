@@ -14,7 +14,7 @@ players = [name[:-4] for name in os.listdir(player_path)]
 players_in_session = []
 PC_TIMEOUT = 60
 HOURS_LOC_DELAY = 6
-WILD_FIGHT_TIME = 5 #seconds
+WILD_FIGHT_TIME = 4 #seconds
 @client.event
 
 async def on_ready():
@@ -27,7 +27,7 @@ async def on_message(message):
         if message.content.startswith(';'):
             cmd = message.content[1:].lower()
             try:
-                if   cmd in ['encounter', 'pokemon', 'p', 'e']:
+                if   cmd in ['encounter', 'e', 'wild', 'w']:
                     await encounter_poke(message)
                 elif cmd == 'join':
                     await join_member(message)
@@ -91,7 +91,8 @@ async def encounter_poke(message):
     
     #check if the player even has a party.
     #if no party, always catch pokemon and never fight
-    if player.party == []:
+    #-------------------EDIT ME------------------------
+    if  True or player.party == []:
         await catch_poke(message, player, poke)
         done = True
     else:
@@ -119,9 +120,10 @@ async def encounter_poke(message):
     with open(timestamp_file, 'r') as f:
         time_data = json.load(f)
     time_data[player.id] = int(time.time())
-    #with open(timestamp_file, 'w') as f:
-    #    json.dump(data, f)
+    with open(timestamp_file, 'w') as f:
+        json.dump(data, f)
     instances.write_player(player)
+    
 async def catch_poke(message, player, poke):
     output = 'You caught ' + str(poke.name) + '!'
     done = False
@@ -174,9 +176,13 @@ async def distribute_xp(message, player, wild_poke):
         xp = int(xp/2)
     if og_level != player.party[0].level:
         if player.party[0].level - og_level == 1:
-            await client.send_message(message.channel, player.party[0].name + ' Leveled Up!')
+            await client.send_message(message.channel, player.party[0].name + ' leveled up!')
+            msg = player.party[0].name + ' leveled up!'
+            msg += '\nThey are now level ' + str(player.party[0].level) + '!'
+            await client.send_message(message.channel, msg)
         else:
-            msg = player.party[0].name + ' Gained ('+str(player.party[0].level - og_level)+') Levels!'
+            msg = player.party[0].name + ' Gained ('+str(player.party[0].level - og_level)+') levels!'
+            msg += '\nThey are now level ' + str(player.party[0].level) + '!'
             await client.send_message(message.channel, msg)
         await learn_new_moves(message, poke, poke.find_new_moves(og_level))
     if len(player.party) > 1:
@@ -185,11 +191,15 @@ async def distribute_xp(message, player, wild_poke):
             poke.add_xp(int(xp/len(player.party[1:])))
             if og_level != poke.level:
                 if poke.level - og_level == 1:
-                    await client.send_message(message.channel, poke.name + ' Leveled Up!')
+                    msg = poke.name + ' leveled up!'
+                    msg += '\nThey are now level ' + str(poke.level) + '!'
+                    await client.send_message(message.channel, msg)
                 else:
-                    msg = poke.name + ' Gained ('+str(poke.level - og_level)+') Levels!'
+                    msg = poke.name + ' Gained ('+str(poke.level - og_level)+') levels!'
+                    msg += '\nThey are now level ' + str(poke.level) + '!'
                     await client.send_message(message.channel, msg)
                 await learn_new_moves(message, poke, poke.find_new_moves(og_level))
+                
 async def learn_new_moves(message, poke, moves):
     for move in moves:
         if len(poke.moves) < 4:
@@ -310,6 +320,7 @@ async def show_boxes(message, curr_box=0):
             output +=  '\n"exit" or "c" -- close pc'
             output += '```'
             await client.send_message(message.channel, output)
+            disp_cmds = False
         response = await client.wait_for_message(author=message.author, channel=message.channel, timeout=PC_TIMEOUT)
         if response != None:
             response = response.content.lower()
@@ -377,7 +388,6 @@ async def show_boxes(message, curr_box=0):
                             player.party[party_index] = player.boxes[curr_box][pc_index]
                             player.boxes[curr_box][pc_index] = temp
                         disp_party = True
-                        disp_pc = True
             elif response.startswith('deposit '):
                 try:
                     params = response.split()
@@ -393,7 +403,6 @@ async def show_boxes(message, curr_box=0):
                             curr_box += 1
                         player.add_poke(player.party.pop(party_index))
                         disp_party = True
-                        disp_pc = True
             else:
                 fails += 1
                 if fails == 3:

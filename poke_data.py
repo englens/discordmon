@@ -74,6 +74,12 @@ def get_poke_abilites(id):
     poke = get_poke(id)
     return [ability['ability']['name'] for ability in poke['abilities'] if ability['is_hidden'] == False]
     
+def get_poke_next_evo(id):
+    poke = get_poke(id)
+    spec = get_poke_species(id)
+    
+    
+    
 def get_area(id):
     with open(location_path+str(id)+'.txt') as f:
         data = json.load(f)
