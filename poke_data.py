@@ -6,6 +6,7 @@ url = 'http://pokeapi.co/api/v2/'
 pokemon_path   = './data/pokemon_reference/'
 location_path  = './data/locations/'
 species_path   = './data/species_reference/'
+evo_chain_path = './data/evo_chain_reference'
 FISH_REDUCTION = 4 #divided by this number
 
 
@@ -25,7 +26,14 @@ def write_all_pokemon_reference():
 def write_areas(areas):
     for area in areas:
         write_area(area)
-
+        
+def write_region_areas(locs):
+    for locn in locs:
+        data = fetch_location(locn['name'])
+        for area in fetch_loc_areas(data):
+            write_area(area)
+        
+        
 #write area data to file, must provide
 def write_area(area):
     #location = area['location']['url'][35:-1]
@@ -77,8 +85,21 @@ def get_poke_abilites(id):
 def get_poke_next_evo(id):
     poke = get_poke(id)
     spec = get_poke_species(id)
+    try:
+        evo_chain = get_evo_chain(spec['evolution_chain']['url'][41:-1])
+    except OSError:
+        evo_chain = write_evo_chain(spec['evolution_chain']['url'])
     
+def get_evo_chain(id):
+    with open(evo_chain_path+str(data['id'])+'.txt', 'r') as f:
+        data = json.load(f)
+    return
     
+def write_evo_chain(url):
+    data = requests.get(url).json()
+    with open (evo_chain_path+str(data['id'])+'.txt', 'w') as f:
+        json.dump(data, f)
+    return data
     
 def get_area(id):
     with open(location_path+str(id)+'.txt') as f:
@@ -137,7 +158,7 @@ def get_area_gen1_pokemon_data(area_id):
     encounter_list = []
     for poke in area['pokemon_encounters']:
         for version in poke['version_details']:
-            if version['version']['name'] == 'firered' or version['version']['name'] == 'leafgreen':
+            if version['version']['name'] in ['firered' 'leafgreen', 'soulsilver', 'heartgold']:
                 #this is a valid poke. record this encounter and this poke, and check next poke
                 encounter_list.append(version['encounter_details'])
                 ids.append(poke['pokemon']['url'][34:-1])
@@ -212,6 +233,10 @@ def fetch_kanto_locations():
     kanto = requests.get(url+'region/1/').json()
     return [requests.get(l['url']).json() for l in kanto['locations']]
 
+def fetch_region_locs(region):
+    reg = requests.get(url+'region/'+str(region)+'/').json()
+    return [requests.get(l['url']).json() for l in reg['locations']]
+    
 #weighted random choice, returns index of choice
 def choose_weighted(weights):
     total = sum(weights) - 1

@@ -1,0 +1,1 @@
+{"names": [{"name": "empty floor Y", "language": {"url": "https://pokeapi.co/api/v2/language/9/", "name": "en"}}], "name": "whirl-islands-empty-floor-y", "encounter_method_rates": [], "location": {"url": "https://pokeapi.co/api/v2/location/156/", "name": "whirl-islands"}, "pokemon_encounters": [], "id": 231, "game_index": 48}

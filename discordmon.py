@@ -13,7 +13,7 @@ locations = [name[:-4] for name in os.listdir('./data/locations/')]
 players = [name[:-4] for name in os.listdir(player_path)]
 players_in_session = []
 PC_TIMEOUT = 60
-HOURS_LOC_DELAY = 6
+HOURS_LOC_DELAY = 4
 WILD_FIGHT_TIME = 4 #seconds
 @client.event
 
@@ -45,6 +45,8 @@ async def on_message(message):
                     await show_loc(message)
                 elif cmd == 'party':
                     await show_party(message)
+            except KeyboardInterrupt as k:
+                raise k
             except Exception as e:
                 #we catch this so it doesn't hang that user's session on error,
                 #but we still want to see what went wrong so:
@@ -73,16 +75,16 @@ async def encounter_poke(message):
                 await client.send_message(message.channel, 'Please wait ' + str(remain) + ' seconds(s) before catching another!')
             return
     #-------END OF CHECKS-------        
-    #set up pokemon, and return if location contains none
-    tries = 5
+    #set up pokemon. Keeps trying if none found, and if location contains none,
+    #keep going to new locations until a poke is found.
     poke = None
+    tries = 5
     while poke == None and tries >= 0:
         poke = instances.make_for_encounter(await get_location())
         tries -= 1
     if poke == None:
-        await client.send_message(message.channel, 'You found... nothing!')
-        return
-    
+        poke = instances.make_for_encounter(await get_location(force=True))
+    print(poke)
     output = 'A wild ' + str(poke.name) + ' Appears!'
     output += '\nLevel:    ' + str(poke.level)
     await client.send_message(message.channel, output)
@@ -504,10 +506,30 @@ async def send_pic(message, poke):
 async def seconds_to_minutes(t):
     return int(t/60)
 
-async def get_location(return_timeleft=False):
+    
+async def get_location(return_timeleft=False, force=False):
+    with open(currloc_file, 'r') as f:
+        stored_loc = json.load(f)
+    curr_now = datetime.datetime.now()
+    curr_time = curr_now.day*24 + curr_now.hour
+    if force or stored_loc['time'] > curr_time or curr_time - stored_loc['time'] > HOURS_LOC_DELAY:
+        #update time and loc
+        stored_loc['time'] = curr_time
+        loc = random.choice(locations)
+        print('New Location:'+loc)
+        stored_loc['loc'] = loc
+        with open(currloc_file, 'w') as f:
+            json.dump(stored_loc,f)
+    if return_timeleft:
+        return stored_loc['loc'], HOURS_LOC_DELAY - (curr_time - stored_loc['time'])
+    return stored_loc['loc']
+    
+async def get_location_old(return_timeleft=False):
     with open(currloc_file, 'r') as f:
         stored_loc = json.load(f)
     curr_time = datetime.datetime.now()
+    curr_time = curr_time.day*24 + curr_time.hour
+    
     if stored_loc['day'] == curr_time.day and curr_time.hour - stored_loc['hour'] < HOURS_LOC_DELAY:
         pass
     else:
@@ -527,6 +549,8 @@ def run_client(client, *args, **kwargs):
     while True:
         try:
             loop.run_until_complete(client.start(*args, **kwargs))
+        except KeyboardInterrupt as k:
+            raise k
         except Exception as e:
             print("Error", e)  # or use proper logging
         print("Waiting until restart")

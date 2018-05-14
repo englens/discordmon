@@ -306,7 +306,7 @@ def make_for_encounter(location_area_index):
     level_range.append([(0,0)])
     chances.append([MISS_CHANCE])
     id, level = encounter_chance_picker(ids, level_range, chances)
-    if id != 0:
+    if int(id) != 0 and int(id) <= 250:
         level_moves = get_levelup_moves(id)
         starter_moves = [move for move in level_moves if int(move[2]) <= level]
         minimum = 0
