@@ -1,4 +1,4 @@
-import discord, os, instances, json, asyncio
+import discord, os, instances, json, asyncio, traceback, pprint
 import math, random, time, datetime
 from poke_data import *
 cooldown = 3600 #seconds, == 1 hour
@@ -11,12 +11,14 @@ timestamp_file = './data/timestamps.txt'
 currloc_file = './data/currloc.txt'
 locations = [name[:-4] for name in os.listdir('./data/locations/')]
 players = [name[:-4] for name in os.listdir(player_path)]
-players_in_session = []
+
 PC_TIMEOUT = 60
 HOURS_LOC_DELAY = 4
-WILD_FIGHT_TIME = 4 #seconds
-@client.event
+WILD_FIGHT_TIME = 3 #seconds
 
+players_in_session = []
+
+@client.event
 async def on_ready():
     print('Online.')
 
@@ -45,13 +47,14 @@ async def on_message(message):
                     await show_loc(message)
                 elif cmd == 'party':
                     await show_party(message)
+                elif cmd.startswith('pdetails '):
+                    await party_details(message)
             except KeyboardInterrupt as k:
                 raise k
             except Exception as e:
                 #we catch this so it doesn't hang that user's session on error,
                 #but we still want to see what went wrong so:
-                print(type(e))
-                print(e)
+                print(traceback.format_exc())
         players_in_session.remove(message.author.id)  
     return
 
@@ -66,7 +69,7 @@ async def encounter_poke(message):
     if player.id in time_data:
         last_time = time_data[player.id]
         diff = int(time.time()) - last_time
-        if diff < cooldown:
+        if False and diff < cooldown:
             remain = cooldown-diff
             if remain > 60:
                 remain = await seconds_to_minutes(remain)
@@ -79,29 +82,32 @@ async def encounter_poke(message):
     #keep going to new locations until a poke is found.
     poke = None
     tries = 5
-    while poke == None and tries >= 0:
-        poke = instances.make_for_encounter(await get_location())
-        tries -= 1
-    if poke == None:
-        poke = instances.make_for_encounter(await get_location(force=True))
-    print(poke)
-    output = 'A wild ' + str(poke.name) + ' Appears!'
+    while poke == None:
+        while poke == None and tries >= 0:
+            poke = instances.make_for_encounter(await get_location())
+            print(poke)
+            tries -= 1
+            
+        if poke == None:
+            poke = instances.make_for_encounter(await get_location(force=True))
+            
+    output = 'A wild ' + str(poke.name).title() + ' Appears!'
     output += '\nLevel:    ' + str(poke.level)
     await client.send_message(message.channel, output)
     await send_pic(message, poke)
-    await client.send_message(message.channel, '----------------')
+    output =  '----------------'
     
     #check if the player even has a party.
     #if no party, always catch pokemon and never fight
-    #-------------------EDIT ME------------------------
-    if  True or player.party == []:
+
+    if  player.party == []:
+        await client.send_message(message.channel, output)
         await catch_poke(message, player, poke)
         done = True
     else:
         done = False
-    output = ''
     while not done:
-        output += 'Catch or Fight? (c/f)'
+        output += '\nCatch or Fight? (c/f)'
         await client.send_message(message.channel, output)
         response = await client.wait_for_message(author=message.author, channel=message.channel)
         try:
@@ -114,7 +120,7 @@ async def encounter_poke(message):
                 await catch_poke(message, player, poke)
             elif response == 'f':
                 done = True
-                await fight_poke(message, player, poke)
+                await fight_wild(message, player, poke)
             else:
                 output = 'Invalid Response.'
     #player should have encountered a poke to get here
@@ -151,15 +157,16 @@ async def catch_poke(message, player, poke):
         player.add_poke(poke)
     await client.send_message(message.channel, poke.name + ' added!')
     
-async def fight_poke(message, player, poke):
+async def fight_wild(message, player, poke):
     player_power = player.get_party_power()
-    diff = player_power - poke.level
+    diff = player_power - poke.approx_power()
     await client.send_message(message.channel, 'Simulating Battle...')
     await asyncio.sleep(WILD_FIGHT_TIME) #wait for dramatic tension
-    if player_power >= int(random.normalvariate(poke.level, int(math.sqrt(poke.level)))):
-        output = poke.name + ' Defeated!'
+    if diff > 1:
+        output = poke.name.title() + ' Defeated!'
         await client.send_message(message.channel, output)
         await distribute_xp(message, player, poke)
+        await check_apply_evo(message, player, trigger='level-up', item=None, tradewith=None)
     else:
         await client.send_message(message.channel, 'You lost the battle...')
 
@@ -178,7 +185,6 @@ async def distribute_xp(message, player, wild_poke):
         xp = int(xp/2)
     if og_level != player.party[0].level:
         if player.party[0].level - og_level == 1:
-            await client.send_message(message.channel, player.party[0].name + ' leveled up!')
             msg = player.party[0].name + ' leveled up!'
             msg += '\nThey are now level ' + str(player.party[0].level) + '!'
             await client.send_message(message.channel, msg)
@@ -186,7 +192,7 @@ async def distribute_xp(message, player, wild_poke):
             msg = player.party[0].name + ' Gained ('+str(player.party[0].level - og_level)+') levels!'
             msg += '\nThey are now level ' + str(player.party[0].level) + '!'
             await client.send_message(message.channel, msg)
-        await learn_new_moves(message, poke, poke.find_new_moves(og_level))
+        await learn_new_moves(message, player.party[0], player.party[0].find_new_moves(og_level))
     if len(player.party) > 1:
         for poke in player.party[1:]:
             og_level = poke.level
@@ -211,18 +217,19 @@ async def learn_new_moves(message, poke, moves):
             done = False
             while not done:
                 output = poke.name + ' wants to learn <' + move + '> but '+ poke.name
-                output += 'already knows 4 moves! Should a move be forgotten to make space for ' + move + '?'
+                output += ' already knows 4 moves! Should a move be forgotten to make space for <' + move + '>?'
                 response = await yes_or_no(message, output)
                 if response == 'y':
                     output = poke.name + '\'s moves:'
-                    for index, m in poke.moves:
-                        output += '\n' + str(index) + ') ' + m
-                    output += '\nWhat move will be replaced with ' + move + '?'
-                    output += '\nsay "cancel" to cancel.'
-                    client.send_message(message.channel, output)
+                    for index, m in enumerate(poke.moves):
+                        output += '\n' + str(index+1) + ') ' + m
+                    output += '\nWhat move will be replaced with <' + move + '>?'
+                    output += '\nsay the index of the move to delete, or "cancel" to cancel.'
+                    await client.send_message(message.channel, output)
                     done2 = False
                     while not done2:
-                        response2 = await wait_for_message(author=message.author, channel=message.channel).content.lower()
+                        response2 = await client.wait_for_message(author=message.author, channel=message.channel)
+                        response2 = response2.content.lower()
                         if response2 == 'cancel':
                             break
                         try:
@@ -234,16 +241,17 @@ async def learn_new_moves(message, poke, moves):
                                 await client.send_message(message.channel, 'Index out of bounds.')
                             else:
                                 
-                                output = '1, 2 and... Poof! ' + poke.name + ' forgot '+ poke.moves[index]
-                                output += '\nand... ' + poke.name + ' learned ' + move + '!'
+                                output = '1, 2 and... Poof! ' + poke.name + ' forgot <'+ poke.moves[index] + '>'
+                                output += '\nand... ' + poke.name + ' learned <' + move + '>!'
                                 poke.moves[index] = move
                                 await client.send_message(message.channel, output)
                                 done = True
                                 done2 = True
                 elif response == 'n':
-                    response2 = await yes_or_no(message, 'Stop learning ' + move +'?')
+                    response2 = await yes_or_no(message, 'Stop learning <' + move +'>?')
                     if response2 == 'y':
-                        await client.send_message(message.channel, poke.name + ' did not learn ' + move + '.')                   
+                        await client.send_message(message.channel, poke.name + ' did not learn <' + move + '>.')
+                        done = True
                 elif response == 'o':
                     await client.send_message(message.channel, 'Error, Invalid Response.')
                     
@@ -418,7 +426,7 @@ async def show_boxes(message, curr_box=0):
 async def show_poke_details(message, poke):
     await client.send_message(message.channel, '```Details for ' + poke.name + ':```')
     await send_pic(message, poke)
-    output =  '\n```Lvl ' + str(poke.level) + ' ' + poke.get_species() + ' (<Gender_Goes_Here>)'
+    output =  '\n```Lvl ' + str(poke.level) + ' ' + poke.get_species() + ' <' + poke.gender.title() + '>'
     output += '\n('+ str(poke.xp) + '/' + str(poke.get_xp_next_level()) + ')'
     output += '\n[' + poke.nature.title() + ']'
     output += '\nMoves:   ' + poke.str_moves()
@@ -457,7 +465,22 @@ async def quick_details(message):
         await show_poke_details(message, player.boxes[box-1].pokemon[index-1])
         await client.send_message(message.channel, 'PC Closed.')
     except Exception:
-        await client.send_message(message.channel, 'Invalid Index.')
+        await client.send_message(message.channel, 'Box index out of bounds.')
+        
+async def party_details(message):
+    params = message.content.split()
+    try:
+        index = int(params[1])
+    except Exception:
+        await client.send_message(message.channel, 'Invalid Format.')
+        return
+    if not await is_player(message):
+        return
+    player = instances.read_playerfile(message.author.id)
+    try:
+        await show_poke_details(message, player.party[index-1])
+    except Exception:
+        await client.send_message(message.channel, 'Party index out of bounds.')
         
 async def show_loc(message):
     location_name, timeleft = await get_location(return_timeleft=True)
@@ -505,8 +528,7 @@ async def send_pic(message, poke):
 
 async def seconds_to_minutes(t):
     return int(t/60)
-
-    
+   
 async def get_location(return_timeleft=False, force=False):
     with open(currloc_file, 'r') as f:
         stored_loc = json.load(f)
@@ -523,27 +545,25 @@ async def get_location(return_timeleft=False, force=False):
     if return_timeleft:
         return stored_loc['loc'], HOURS_LOC_DELAY - (curr_time - stored_loc['time'])
     return stored_loc['loc']
-    
-async def get_location_old(return_timeleft=False):
-    with open(currloc_file, 'r') as f:
-        stored_loc = json.load(f)
-    curr_time = datetime.datetime.now()
-    curr_time = curr_time.day*24 + curr_time.hour
-    
-    if stored_loc['day'] == curr_time.day and curr_time.hour - stored_loc['hour'] < HOURS_LOC_DELAY:
-        pass
-    else:
-        stored_loc['day']  = curr_time.day
-        stored_loc['hour'] = curr_time.hour
-        loc = random.choice(locations)
-        print('New Location:'+loc)
-        stored_loc['loc'] = loc
-        with open(currloc_file, 'w') as f:
-            json.dump(stored_loc,f)
-    if return_timeleft:
-        return stored_loc['loc'], HOURS_LOC_DELAY - (curr_time.hour - stored_loc['hour'])
-    return stored_loc['loc']
 
+async def check_apply_evo(message, player, trigger, item=None, tradewith=None):
+    for poke in player.party:
+        evo = poke.find_evo(trigger, await get_location(), player, item, tradewith)
+        #evo is a species data
+        if evo != None:
+            await asyncio.sleep(4)
+            await client.send_message(message.channel, '...What?')
+            await asyncio.sleep(1)
+            await client.send_message(message.channel, poke.name + ' is evolving!\n(say \'cancel\' to stop evolution)')
+            for _ in range(5):
+                await asyncio.sleep(1)
+                await client.send_message(message.channel, '.')
+            await client.send_message(message.channel, poke.name + ' has evolved into ' + get_poke_name(evo) + '!!')
+            if poke.has_base_name():
+                poke.name = get_poke_name(evo)
+            poke.id = int(evo)
+            await show_poke_details(message, poke)
+            
 def run_client(client, *args, **kwargs):
     loop = asyncio.get_event_loop()
     while True:
@@ -553,11 +573,14 @@ def run_client(client, *args, **kwargs):
             raise k
         except Exception as e:
             print("Error", e)  # or use proper logging
-        print("Waiting until restart")
-        time.sleep(100)
-
+        print("Retrying until restart...")
+        time.sleep(60)
+        
+        
+            
 with open('../key.txt', 'r') as f:
     key = f.read() 
 #client.run(key)
+
 run_client(client, key)
 

@@ -1,4 +1,4 @@
-import random
+import random, datetime, string
 from pprint import pprint
 from poke_data import *
 version_id = 1
@@ -10,24 +10,25 @@ natures = ['hardy','lonely','brave','adamant','naughty','bold','docile','relaxed
            'impish','lax','timid','hasty','serious','jolly','naive','modest',
            'mild','quiet','bashful','rash','calm','gentle','sassy','careful','quirky']
 pic_file       = './data/pictures/male/'
-pic_file_shiny = './data/pictures/maleshiny'
+pic_file_shiny = './data/pictures/maleshiny/'
+pic_file_unown = './data/pictures/unown'
 player_path    = '../players/'
-        
+unown_forms = list(string.ascii_lowercase)
+unown_forms.append('exclamation')
+unown_forms.append('question')
+# make ! and ? more rare
+unown_forms = unown_forms + list(string.ascii_lowercase) + list(string.ascii_lowercase)
 class Pokemon:
     """An instance of a type of pokemon. In addition to
     the class stores data on its current attributes, moves, and owner.
     """
-    def __init__(self, id, owner, moves, ability, nature, name=None, level=1, xp=0, evs=[0,0,0,0,0,0], ivs=None, is_shiny=True, gender=None):
+    def __init__(self, id, moves, ability, nature, happiness, name, level=1, xp=0, evs=[0,0,0,0,0,0], ivs=None, is_shiny=True, gender=None, item=None, form=None):
         self.id = id
-        self.owner = owner
-        self.name = name
         self.moves = moves
         self.ability = ability
         self.nature = nature
-        if name is None:
-            self.name = get_poke_name(id)
-        else:
-            self.name = name
+        self.happiness = happiness
+        self.name = name
         self.level = level
         self.xp = xp
         self.evs = evs
@@ -40,8 +41,17 @@ class Pokemon:
             self.gender = 'Unset'
         else:
             self.gender = gender
-    
+        self.item = item
+        self.form = form
+        
     def get_pic(self):
+        if int(self.id) == 201:
+            if self.is_shiny:
+                return pic_file_unown + '/default/' + str(self.form) +'.png'
+            else:
+                return pic_file_unown + '/shiny/' + str(self.form) +'.png'
+                
+            
         if self.is_shiny == True:
             return pic_file_shiny  + str(self.id)+'.png'
         else:
@@ -81,7 +91,7 @@ class Pokemon:
         if self.nature in ['hasty','gentle','mild','lonely']:
             return int(output * 0.9)
         return output
-        
+    
     def get_att(self):
         output = int(((2*self.get_base_stats()[4] + self.ivs[4] + int(self.evs[4]/4))*self.level)/100) + 5
         if self.nature in ['lonely','brave','adamant','naughty']:
@@ -109,13 +119,101 @@ class Pokemon:
             diff = self.xp - self.get_xp_next_level()
             self.level += 1
             self.xp = diff
-        print(self.name + ' gained ' + str(deltaxp) + ' xp.')
-        print('Now at (' + str(self.xp) + '/' + str(self.get_xp_next_level()) + ')')
+        print(self.name + ' gained ' + str(deltaxp) + ' xp. (' + str(self.xp) + '/' + str(self.get_xp_next_level()) + ')')
+        
+    def has_base_name(self):
+        return get_poke_name(self.id) == self.name
     
     def find_new_moves(self, old_lvl):
         level_moves = get_levelup_moves(self.id)
         return [move[0] for move in level_moves if (move[2] > old_lvl and move[2] <= self.level)]
     
+    def find_evo(self, trigger, loc, owner, item=None, tradewith=None):
+        evos = get_poke_evos(self.id)
+        if evos is None:
+            return None
+        for evo in evos:
+            for det in evo['evolution_details']:
+                valid = True
+                #make sure this is the right time to evolve, and skip everything if so
+                if det['trigger']['name'] != trigger:
+                    print('wrong trigger: ' + det['trigger']['name'])
+                    continue
+                    
+                #check every condition
+                if det['gender'] != None:
+                    if self.gender != det['gender']:
+                        valid = False
+                if det['held_item'] != None:
+                    if det['held_item'] != self.item:
+                        valid = False
+                if det['item'] != None:
+                    if det['trigger']['name'] == 'use-item':
+                        if det['item']['name'] != item:
+                            valid == False
+                if det['known_move'] != None:
+                    if det['known_move']['name'] not in self.moves:
+                        valid = False
+                if det['known_move_type'] != None:
+                    if det['known_move_type']['name'] not in [get_move_type(move) for move in self.moves]:
+                        valid = False
+                if det['location'] != None:
+                    if det['location'] != loc:
+                        valid = False
+                if det['min_affection'] != None:
+                    pass#----------------------------------------
+                if det['min_beauty'] != None:
+                    #beauty evos are disabled.
+                    valid = False
+                if det['min_happiness'] != None:
+                    if det['min_happiness'] > self.happiness:
+                        valid = False
+                if det['min_level'] != None:
+                    if det['min_level'] > self.level:
+                        valid = False
+                if det['needs_overworld_rain'] != False:
+                    pass #------------------------------------------
+                if det['party_species'] != None:
+                    if det['party_species'] not in [get_poke_species(p.id)['name'] for p in owner.party]:
+                        valid = False
+                if det['party_type'] != None:
+                    if det['party_type'] not in [get_poke_types(p.id) for p in owner.party]:
+                        valid = False
+                if det['relative_physical_stats'] != None:
+                    if self.get_att() > self.get_def():
+                        rps = 1
+                    elif self.get_att() < self.get_def():
+                        rps = -1
+                    else:
+                        rps = 0
+                    if det['relative_physical_stats'] != rps:
+                        valid = False
+                if det['time_of_day'] != '':
+                    hour = datetime.datetime.now().hour
+                    if hour < 5 or hour > 8:
+                        tod = 'night'
+                    else:
+                        tod = 'day'
+                    if det['time_of_day'] != tod:
+                        valid = False
+                if det['trade_species'] != None:
+                    if det['trade_species']['name'] != tradewith_species:
+                        valid = False
+                if det['turn_upside_down'] != False:
+                    valid = False #------------------------------
+                if valid == True:
+                    #found it!
+                    spec = get_species(evo['species']['url'][42:-1])
+                    if len(spec['varieties']) > 1:
+                        if spec['forms_switchable']:
+                            for v in spec['varieties']:
+                                if v['is_default']:
+                                    return v['pokemon']['url'][34:-1]
+                        elif spec['name'] == 'wormadam':
+                            pass #---------------------------------
+                    return spec['varieties'][0]['pokemon']['url'][34:-1]
+        return None
+        
     def str_moves(self):
         output = ''
         if self.moves == []:
@@ -123,12 +221,27 @@ class Pokemon:
         for move in self.moves:
             output += move.title() + ', '
         return output[:-2]
-
+    
+    def approx_power(self):
+        if self.moves == []:
+            return 0
+        #sum all the levels, giving leader double weight
+        total = 0
+        for move_name in self.moves:
+            move = get_move(move_name)
+            modifier = 1
+            if move['damage_class']['name'] == 'physical':
+                total += int((((2*self.level)/5 + 2) * move['power'] * self.get_att())/50 + 2) * modifier
+            elif move['damage_class']['name'] == 'special':
+                total += int((((2*self.level)/5 + 2) * move['power'] * self.get_sp_att())/50 + 2) * modifier
+        return total
+        
     def to_dict(self):
-        return {'id':self.id,       'owner':self.owner,     'moves':self.moves, 
-                'ability':self.ability, 'nature':self.nature, 'name':self.name, 
-                'level':self.level, 'xp':self.xp, 'evs':self.evs, 'ivs':self.ivs, 
-                'is_shiny':self.is_shiny, 'gender':self.gender}
+        return {'id':self.id, 'moves':self.moves, 
+                'ability':self.ability, 'nature':self.nature, 'happiness':self.happiness,
+                'name':self.name, 'level':self.level, 'xp':self.xp, 'evs':self.evs,
+                'ivs':self.ivs, 'is_shiny':self.is_shiny, 'gender':self.gender, 'item':self.item,
+                'form':self.form}
         
     #Basic overview of pokemon-- Name+Level
     def __str__(self):
@@ -242,6 +355,7 @@ class Player:
             line += ' ' * (maximum - len(line) + 1)
             output += line
             output += 'Lvl ' + str(self.party[index].level)
+            output += ' (' + str(self.party[index].xp) + '/' + str(self.party[index].get_xp_next_level()) + ')'
         output += '\n-----------------------```'
         return output
     
@@ -250,8 +364,11 @@ class Player:
         if self.party == []:
             return 0
         #sum all the levels, giving leader double weight
-        total = sum([poke.level for poke in self.party]) + self.party[0].level
-        return int(total/(len(self.party)+1))
+        total = 0
+        for poke in self.party:
+            total += poke.approx_power()
+                
+        return total
         
     def __str__(self):
         return name
@@ -282,7 +399,6 @@ def array_string_safe(array):
     
 def read_pokedict(dic):
     id = dic['id']
-    owner = dic['owner']
     moves = dic['moves']
     ability = dic['ability']
     nature = dic['nature']
@@ -292,11 +408,28 @@ def read_pokedict(dic):
     ivs = dic['ivs']
     is_shiny = dic['is_shiny']
     gender = dic['gender']
+    if gender == 'Unset':
+        gender = get_rand_gender(id)
     try:
         xp = dic['xp']
     except Exception:
         xp = 0
-    return Pokemon(id, owner, moves, ability, nature, name=name, level=level, xp=xp, evs=evs, ivs=ivs, is_shiny=is_shiny, gender=gender)
+    try:
+        happiness = dic['happiness']
+    except Exception:
+        happiness = get_poke_base_happiness(id)
+    try:
+        form = form['happiness']
+    except Exception:
+        if id == 201:
+            form = 'a'
+        else:
+            form = None    
+    try:
+        item = dic['item']
+    except Exception:
+        item = None    
+    return Pokemon(id, moves, ability, nature, happiness, name=name, level=level, xp=xp, evs=evs, ivs=ivs, is_shiny=is_shiny, gender=gender, item=item, form=form)
 
 #return an instance of given pokemon at default level for the given area
 def make_for_encounter(location_area_index):
@@ -320,12 +453,18 @@ def make_for_encounter(location_area_index):
         else:
             ability = random.choice(abilites)
         nature = random.choice(natures)
-        
+        happiness = get_poke_base_happiness(id)
+        name = get_poke_name(id)
         is_shiny = random.randint(1,SHINY_CHANCE) == 1
-        gender = 'Unset'
-        return Pokemon(id, 'WILD', moves, ability, nature, level=level, is_shiny=is_shiny)
+        gender = get_rand_gender(id)
+        if id == 201: #unown
+            form = random.choice(unown_forms)
+        else:
+            form = None
+        return Pokemon(id, moves, ability, nature, happiness, name, level=level, is_shiny=is_shiny, gender=gender, item=None, form=form)
     return None
-
+    
+    
 def write_player(player):
     with open(player_path+str(player.id)+'.txt', 'w') as f:
         json.dump(player.to_dict(), f)

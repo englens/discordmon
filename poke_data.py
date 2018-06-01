@@ -6,9 +6,9 @@ url = 'http://pokeapi.co/api/v2/'
 pokemon_path   = './data/pokemon_reference/'
 location_path  = './data/locations/'
 species_path   = './data/species_reference/'
-evo_chain_path = './data/evo_chain_reference'
+evo_chain_path = './data/chain_reference/'
+move_path      = './data/move_reference/'
 FISH_REDUCTION = 4 #divided by this number
-
 
 #write specific pokemon to storage, stored as <id>.txt
 def write_pokemon_reference(name):
@@ -33,6 +33,10 @@ def write_region_areas(locs):
         for area in fetch_loc_areas(data):
             write_area(area)
         
+def write_move(move):
+    with open(move_path+move['name']+'.txt', 'w') as f:
+        json.dump(move, f)
+        print('wrote ' + str(move['name']))
         
 #write area data to file, must provide
 def write_area(area):
@@ -82,18 +86,41 @@ def get_poke_abilites(id):
     poke = get_poke(id)
     return [ability['ability']['name'] for ability in poke['abilities'] if ability['is_hidden'] == False]
     
-def get_poke_next_evo(id):
-    poke = get_poke(id)
+def get_move(name):
+    try:
+        with open(move_path+name+'.txt', 'r') as f:
+            move = json.load(f)
+    except OSError:
+        move = fetch_move(name)
+        write_move(move)
+    return move
+    
+def get_poke_evos(id):
+    #poke = get_poke(id)
     spec = get_poke_species(id)
     try:
         evo_chain = get_evo_chain(spec['evolution_chain']['url'][41:-1])
     except OSError:
         evo_chain = write_evo_chain(spec['evolution_chain']['url'])
+    #recursive to find the poke in the chain, works for eevee-likes
+    def find_link(link):
+        if link['species']['name'] == spec['name']:
+            return link
+        if link['evolves_to'] == []:
+            return None
+        
+        for evo in link['evolves_to']:
+            output = find_link(evo)
+            if output != None:
+                return output
+        return None
+    link = find_link(evo_chain['chain'])
+    return link['evolves_to']
     
 def get_evo_chain(id):
-    with open(evo_chain_path+str(data['id'])+'.txt', 'r') as f:
+    with open(evo_chain_path+str(id)+'.txt', 'r') as f:
         data = json.load(f)
-    return
+    return data
     
 def write_evo_chain(url):
     data = requests.get(url).json()
@@ -119,6 +146,14 @@ def get_stats(id):
 def get_poke_name(id):
     poke = get_poke(id)
     return poke['name']
+
+def get_poke_base_happiness(id):
+    spec = get_poke_species(id)
+    return spec['base_happiness']
+
+def get_poke_types(id):
+    poke = get_poke(id)
+    return [t['type']['name'] for t in poke['types']]
     
 def get_poke_kanto_moves(id):
     poke = get_poke(id)
@@ -133,6 +168,10 @@ def get_poke_kanto_moves(id):
 def get_egg_moves(id):
     moves = get_poke_kanto_moves(id)
     return [move for move in moves if move[1] == 'egg']
+
+def get_move_type(name):
+    move = get_move(name)
+    return move['type']['name']
     
 def get_levelup_moves(id):
     moves = get_poke_kanto_moves(id)
@@ -187,6 +226,16 @@ def get_poke_species(id):
     poke = get_poke(id)
     return get_species(poke['species']['url'][42:-1])
 
+def get_rand_gender(id):
+    spec = get_poke_species(id)
+    female = spec['gender_rate']
+    if female == -1:
+        return 'genderless'
+    if random.randint(1,8) <= female:
+        return 'female'
+    return 'male'
+    
+    
 def get_poke_growth_type(id):
     spec = get_poke_species(id)
     return spec['growth_rate']['name']
@@ -196,16 +245,14 @@ def fetch_species(id):
     url = poke['species']['url']
     return requests.get(url).json()
     
-def fetch_picture(id):
-    with open('./data/pictures/male/'+str(id)+'.png', 'wb+') as handle:
-        response = requests.get('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/'+str(id)+'.png', stream=True)
+def fetch_picture(url, path='./data/pictures/male/'):
+    with open(path+str(url[83:-4])+'.png', 'wb+') as handle:
+        response = requests.get(url, stream=True)
         if not response.ok:
             print(response)
-
         for block in response.iter_content(1024):
             if not block:
                 break
-
             handle.write(block)
 
 #get all data about all areas in a location
