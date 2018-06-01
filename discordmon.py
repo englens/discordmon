@@ -69,13 +69,13 @@ async def encounter_poke(message):
     if player.id in time_data:
         last_time = time_data[player.id]
         diff = int(time.time()) - last_time
-        if False and diff < cooldown:
+        if diff < cooldown:
             remain = cooldown-diff
-            if remain > 60:
+            if remain > 40:
                 remain = await seconds_to_minutes(remain)
-                await client.send_message(message.channel, 'Please wait ' + str(remain) + ' minute(s) before catching another!')
+                await client.send_message(message.channel, 'Please wait ' + str(remain) + ' minute(s) before finding another!')
             else:
-                await client.send_message(message.channel, 'Please wait ' + str(remain) + ' seconds(s) before catching another!')
+                await client.send_message(message.channel, 'Please wait ' + str(remain) + ' seconds(s) before finding another!')
             return
     #-------END OF CHECKS-------        
     #set up pokemon. Keeps trying if none found, and if location contains none,
