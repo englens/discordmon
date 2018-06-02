@@ -459,10 +459,8 @@ def make_for_encounter(location_area_index):
         gender = get_rand_gender(id)
         if int(id) == 201: #unown
             form = random.choice(unown_forms)
-            print('form:' + form)
         else:
             form = None
-            print('not unown')
         return Pokemon(id, moves, ability, nature, happiness, name, is_shiny, level=level, gender=gender, item=None, form=form)
     return None
     
