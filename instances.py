@@ -22,7 +22,7 @@ class Pokemon:
     """An instance of a type of pokemon. In addition to
     the class stores data on its current attributes, moves, and owner.
     """
-    def __init__(self, id, moves, ability, nature, happiness, name, level=1, xp=0, evs=[0,0,0,0,0,0], ivs=None, is_shiny=True, gender=None, item=None, form=None):
+    def __init__(self, id, moves, ability, nature, happiness, name, is_shiny, level=1, xp=0, evs=[0,0,0,0,0,0], ivs=None, gender=None, item=None, form=None):
         self.id = id
         self.moves = moves
         self.ability = ability
@@ -47,9 +47,9 @@ class Pokemon:
     def get_pic(self):
         if int(self.id) == 201:
             if self.is_shiny:
-                return pic_file_unown + '/default/' + str(self.form) +'.png'
-            else:
                 return pic_file_unown + '/shiny/' + str(self.form) +'.png'
+            else:
+                return pic_file_unown + '/default/' + str(self.form) +'.png'
                 
             
         if self.is_shiny == True:
@@ -419,7 +419,7 @@ def read_pokedict(dic):
     except Exception:
         happiness = get_poke_base_happiness(id)
     try:
-        form = form['happiness']
+        form = dic['form']
     except Exception:
         if id == 201:
             form = 'a'
@@ -429,7 +429,7 @@ def read_pokedict(dic):
         item = dic['item']
     except Exception:
         item = None    
-    return Pokemon(id, moves, ability, nature, happiness, name=name, level=level, xp=xp, evs=evs, ivs=ivs, is_shiny=is_shiny, gender=gender, item=item, form=form)
+    return Pokemon(id, moves, ability, nature, happiness, name, is_shiny, level=level, xp=xp, evs=evs, ivs=ivs, gender=gender, item=item, form=form)
 
 #return an instance of given pokemon at default level for the given area
 def make_for_encounter(location_area_index):
@@ -457,11 +457,13 @@ def make_for_encounter(location_area_index):
         name = get_poke_name(id)
         is_shiny = random.randint(1,SHINY_CHANCE) == 1
         gender = get_rand_gender(id)
-        if id == 201: #unown
+        if int(id) == 201: #unown
             form = random.choice(unown_forms)
+            print('form:' + form)
         else:
             form = None
-        return Pokemon(id, moves, ability, nature, happiness, name, level=level, is_shiny=is_shiny, gender=gender, item=None, form=form)
+            print('not unown')
+        return Pokemon(id, moves, ability, nature, happiness, name, is_shiny, level=level, gender=gender, item=None, form=form)
     return None
     
     
