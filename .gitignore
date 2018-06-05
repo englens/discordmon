@@ -1,0 +1,3 @@
+./data/timestamps.txt
+./data/currloc.txt
+./__pycache__/*
