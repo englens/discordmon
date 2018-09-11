@@ -165,16 +165,20 @@ async def fight_wild(message, player, poke):
     if diff > 1:
         output = poke.name.title() + ' Defeated!'
         await client.send_message(message.channel, output)
-        await distribute_xp(message, player, poke)
+        xp = wild_poke.get_base_xp() * wild_poke.level
+        #distibute the wild pokemon's xp amung the party
+        await distribute_xp(message, player, xp)
+        #Now that pokemon have leveled, check if any evo's are valid by level up
         await check_apply_evo(message, player, trigger='level-up', item=None, tradewith=None)
     else:
         await client.send_message(message.channel, 'You lost the battle...')
 
-async def distribute_xp(message, player, wild_poke):
+#TODO: Seperate message code from here (put in add xp code, then return message).
+#Distributes xp amung a players party, and displays appropirate level messages
+async def distribute_xp(message, player, xp):
     if player.party == []:
         return
     output = ''
-    xp = wild_poke.get_base_xp() * wild_poke.level
     await client.send_message(message.channel, str(xp) + ' XP Gained!')
     #Level pokemon 1:
     og_level = player.party[0].level

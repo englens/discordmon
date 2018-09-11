@@ -112,6 +112,7 @@ class Pokemon:
     def get_xp_next_level(self):
         return int(exp_for_level(self.level+1, get_poke_growth_type(self.id)) / XP_DIVISOR)
     
+    #increase xp, and level up if needed
     def add_xp(self, deltaxp):
         deltaxp = int(deltaxp)
         self.xp += deltaxp

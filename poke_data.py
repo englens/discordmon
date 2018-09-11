@@ -173,6 +173,10 @@ def get_move_type(name):
     move = get_move(name)
     return move['type']['name']
     
+def get_move_pp(name):
+    move = get_move(name)
+    return move['pp']
+    
 def get_levelup_moves(id):
     moves = get_poke_kanto_moves(id)
     return [move for move in moves if move[1] == 'level-up']
