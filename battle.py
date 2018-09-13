@@ -21,7 +21,7 @@ class Battle:
         
     #plays and finishes the battle. returns winner and updated playerclasses
     def play_battle(self):
-        pass
+        
     
 #wrapper for player that has BattleMon Party
 #If one player is an ai, then that player must be p2
@@ -32,6 +32,7 @@ class BattlePlayer:
         self.curr_party = []
         for poke in self.player.party:
             curr_party.append(BattleMon(poke))
+    
     
     #TOTALY NOT ROBOT
     def is_ai():
