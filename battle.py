@@ -1,6 +1,5 @@
 from poke_data import *
-from instances import Pokemon
-
+import random, instances, discordmon
 #wrapper for Pokemon that also has temp data
 class BattleMon:
     def __init__(self, poke):
@@ -17,9 +16,11 @@ class BattleMon:
 #In discordmon.py, Make a battle object and then call play_battle()     
 class Battle:
     def __init__(self, p1, p2, channel):
-        self.p1 = p1
-        self.p2 = p2
+        self.p1 = p1 #member/user
+        self.p2 = p2 #member/user
+        #Public channel of match. will PM members for moves.
         self.channel = channel
+        
         
     #plays and finishes the battle. returns winner and updated playerclasses
     def play_battle(self):
@@ -49,8 +50,9 @@ class Battle:
 #If one player is an ai, then that player must be p2
 #At end of match, will check if p2 was ai and call their end code  
 class BattlePlayer:
-    def __init__(self, player):
+    def __init__(self, player, user):
         self.player = player
+        self.user = user
         self.curr_party = []
         for poke in self.player.party:
             curr_party.append(BattleMon(poke))
@@ -60,12 +62,17 @@ class BattlePlayer:
     #TOTALY NOT ROBOT
     def is_ai():
         return False
-        
+    
+    def pm(self, message):
+        a
+    def get_input(self, client, valid_responses, question):
+        await cilent.send_message(self.user, question)
+        await client.wait_for_message(author=self.user, 
     #asks the user (thru pm) what they want to do.
     #Options: Move, Swap, (Item?)
     #You cant run-- what are you, a puss puss
-    def get_move_decision(self, other_poke):
-        pass
+    def get_move_decision(self, other_poke, client=None):
+        
         
     def swap_poke_after_death(self):
         self.remaining_pokemon -= 1;
@@ -77,16 +84,20 @@ class BattlePlayer:
 #Has a set reward and endquote, Reward can be set to None
 #for exhibitions
 class BattleAI:
-    def __init__(self, party):
-        self.party = party #should be battlemon
+    def __init__(self, party, strategy):
+        self.curr_party = party #should be battlemon
+        self.active_poke = 0
         self.endquote = endquote
         self.bounty = bounty
-    
+        self.strategy = strategy
+        
     #AM ROBOT BEEP BOOP
     def is_ai():
         return True
         
-    def get_move_decision(self, other_poke):
+    def get_move_decision(self, other_poke, client=None):
+        if strategy=='RAND':
+            return random.choice(self.curr_party[self.active_poke].moves)
         pass
         
     def swap_poke_after_death(self):

@@ -1,0 +1,35 @@
+{Mentions p2}, {p1.name} is challenging you! Do you accept their challenge? (y/n)
+>no
+    Challenge Declined. You now cannot recive challenges from {p1.name} for 2 hour(s).
+    ~~Close~~
+>yes
+    Entering Battle...
+    Go! {p1.party[0].name}
+    Go! {p2.party[0].name}
+    /Display curr-screen
+    PMs:
+        Please select a move for {pX.party[curr].name}
+        1       -- {move1}
+        2       -- {move2}
+        3       -- {move3}
+        4       -- {move4}
+        switch  -- change pokemon
+        concede -- surrender
+        >/invalid/
+            please enter a valid response.
+            ~~Repeat~~
+        >switch
+            bring out who?
+            1      -- poke 1
+            ...
+            N      -- poke N
+            cancel -- go back
+        >concede 
+            Really concede? (y/n)
+            >n
+                ~~Repeat~~
+            >y
+                In Main:
+                {pX.name} has conceded!
+                ~~End~~
+    ~~Battle~~
