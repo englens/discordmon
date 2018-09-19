@@ -1,5 +1,7 @@
 from poke_data import *
 import random, instances, discordmon
+MAX_RETRYS = 20
+
 #wrapper for Pokemon that also has temp data
 class BattleMon:
     def __init__(self, poke):
@@ -10,16 +12,17 @@ class BattleMon:
         self.curr_pp = self.pp[:]
         self.curr_hp = self.poke.get_hp()
         self.new_xp = 0
+        self.dead = False
 
 #Controls the entire battle.
 #Output: The winner, the updated player classes (with updated pokemon)
 #In discordmon.py, Make a battle object and then call play_battle()     
 class Battle:
-    def __init__(self, p1, p2, channel):
+    def __init__(self, p1, p2, client):
         self.p1 = p1 #member/user
         self.p2 = p2 #member/user
         #Public channel of match. will PM members for moves.
-        self.channel = channel
+        self.client = client
         
         
     #plays and finishes the battle. returns winner and updated playerclasses
@@ -63,17 +66,68 @@ class BattlePlayer:
     def is_ai():
         return False
     
-    def pm(self, message):
-        a
+    def pm(self, client, message):
+        await client.send_message(self.user, message)
+        
     def get_input(self, client, valid_responses, question):
-        await cilent.send_message(self.user, question)
-        await client.wait_for_message(author=self.user, 
+        done = False
+        count = 0
+        while not done:
+            count += 0
+            await cilent.send_message(self.user, question)
+            #find the private channel
+            p_channel = None
+            for pc in client.private_channels:
+                if self.user in pc.recipients:
+                    p_channel = pc
+                    break
+            if p_channel is None:
+                return
+            response = await client.wait_for_message(author=self.user, channel=p_channel, timeout=60)
+            if response is None:
+                return None  #Let timeout run out
+            response = lower(response)
+            if response in valid_responses:
+                return response  #good!
+            if count > MAX_RETRYS:
+                return None  #Too many retrys
+            self.pm(client, "Invalid Response.")
+        
     #asks the user (thru pm) what they want to do.
     #Options: Move, Swap, (Item?)
     #You cant run-- what are you, a puss puss
-    def get_move_decision(self, other_poke, client=None):
-        
-        
+    async def get_move_decision(self, other_poke, client):
+        moves = self.curr_party[self.active_poke].poke.moves
+        while True:
+            question = 'please select a move.\n```'
+            for i, m in enumerate(moves):
+                question += f'{i+1}       -- \{{m}\}\n'
+            question += 'switch  -- change pokemon\nconcede -- surrender```'
+            #Move input loop (until a correct move is picked)
+            response = self.get_input(client, ['1', '2', '3', '4', 'switch', 'concede'], question)
+                #if player went 60 seconds without timeout, or too many err inputs, no moves
+            elif response is None:
+                return None  
+                #This is if they didn't input a move.
+                #Turn is skipped.
+            if response == "1":
+                return moves[0]
+            elif response == "2":
+                return moves[1]
+            elif response == "3":
+                return moves[2]
+            elif response == '4':
+                return moves[3]
+            elif response == 'switch':
+                #TODO
+            elif response == 'concede':
+                yn = self.get_input(client, ['y','n','yes','no'], "Really surrender?")
+                if yn in ['y', 'yes']:
+                    return 'Concede'
+                #else, go back to move choice
+            else:
+                self.pm("Invalid response.")
+            
     def swap_poke_after_death(self):
         self.remaining_pokemon -= 1;
         if self.remaining_pokemon <= 0:
