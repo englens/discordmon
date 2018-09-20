@@ -56,6 +56,7 @@ class BattlePlayer:
     def __init__(self, player, user):
         self.player = player
         self.user = user
+        #curr party will stay the same size, but pokemon in it will die.
         self.curr_party = []
         for poke in self.player.party:
             curr_party.append(BattleMon(poke))
@@ -99,10 +100,10 @@ class BattlePlayer:
     async def get_move_decision(self, other_poke, client):
         moves = self.curr_party[self.active_poke].poke.moves
         while True:
-            question = 'please select a move.\n```'
+            question = 'please select a move.```'
             for i, m in enumerate(moves):
-                question += f'{i+1}       -- \{{m}\}\n'
-            question += 'switch  -- change pokemon\nconcede -- surrender```'
+                question += f'\n{i+1}  -- [{m}]'
+            question += '\nswitch  -- change pokemon\nconcede  -- surrender```'
             #Move input loop (until a correct move is picked)
             response = self.get_input(client, ['1', '2', '3', '4', 'switch', 'concede'], question)
                 #if player went 60 seconds without timeout, or too many err inputs, no moves
@@ -110,7 +111,7 @@ class BattlePlayer:
                 return None  
                 #This is if they didn't input a move.
                 #Turn is skipped.
-            if response == "1":
+            if response   == "1":
                 return moves[0]
             elif response == "2":
                 return moves[1]
@@ -119,7 +120,24 @@ class BattlePlayer:
             elif response == '4':
                 return moves[3]
             elif response == 'switch':
-                #TODO
+                output = 'Select a pokemon to swap to:```'
+                for i, poke in enumerate(self.curr_party):
+                    if poke.dead:
+                        output += f'\n{i+1} -- {poke.poke.name}'
+                    else:
+                        output += f'\n{i+1} -- {poke.poke.name}'
+                output += 'cancel -- go back```'
+                    
+                response = self.get_input(client, ['1', '2', '3', '4', '5', '6', 'cancel'], output)
+                if response == 'cancel':
+                    pass #nothing to do here. loop will continue.
+                else: #1-6
+                    choice = int(response)-1
+                    if self.curr_party[choice].dead:
+                        self.pm('Selected pokemon has Fainted!')
+                    else:
+                        self.active_poke = choice
+                        return 'swap_poke'
             elif response == 'concede':
                 yn = self.get_input(client, ['y','n','yes','no'], "Really surrender?")
                 if yn in ['y', 'yes']:
