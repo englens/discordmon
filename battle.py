@@ -31,6 +31,7 @@ class Battle:
         while not game_done:
             ##repeat untill poke death:
             p1_move = p1.get_move_decision(p2.party[p2.active_poke])
+            
             p2_move = p2.get_move_decision(p1.party[p1.active_poke])
             ##calculate first move
             self.execute_move(p1_move)
@@ -95,6 +96,7 @@ class BattlePlayer:
             self.pm(client, "Invalid Response.")
         
     #asks the user (thru pm) what they want to do.
+    #Returns Move string, "concede", or "swap_poke"
     #Options: Move, Swap, (Item?)
     #You cant run-- what are you, a puss puss
     async def get_move_decision(self, other_poke, client):
@@ -141,7 +143,7 @@ class BattlePlayer:
             elif response == 'concede':
                 yn = self.get_input(client, ['y','n','yes','no'], "Really surrender?")
                 if yn in ['y', 'yes']:
-                    return 'Concede'
+                    return 'concede'
                 #else, go back to move choice
             else:
                 self.pm("Invalid response.")
