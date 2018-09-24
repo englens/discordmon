@@ -18,12 +18,14 @@ class BattleMon:
 #Output: The winner, the updated player classes (with updated pokemon)
 #In discordmon.py, Make a battle object and then call play_battle()     
 class Battle:
-    def __init__(self, p1, p2, client):
+    def __init__(self, p1, p2, client, fight_channel):
         self.p1 = p1 #member/user
         self.p2 = p2 #member/user
         #Public channel of match. will PM members for moves.
         self.client = client
-        
+        self.fight_channel = fight_channel
+    def broadcast(self, msg):
+        await client.send_message(self.fight_channel, msg)
         
     #plays and finishes the battle. returns winner and updated playerclasses
     def play_battle(self):
@@ -31,8 +33,18 @@ class Battle:
         while not game_done:
             ##repeat untill poke death:
             p1_move = p1.get_move_decision(p2.party[p2.active_poke])
-            
             p2_move = p2.get_move_decision(p1.party[p1.active_poke])
+            #could be Move string, "concede", or "swap_poke"
+            if   p1_move[0] == 'concede':
+                pass
+            elif p1_move[0] == 'swap':
+                pass
+            elif p1_move[0] == 'attack':
+                pass
+            else:
+                print(f'somthing went wrong with a battle: invalid action "{p1_move[0]}"')
+           
+            
             ##calculate first move
             self.execute_move(p1_move)
             if p2.curr_party[p2.active_poke].curr_hp <= 0:
@@ -45,8 +57,10 @@ class Battle:
         ##Display AI endquote
         ##Award any XP/prizes
         ##Level pokemon and save to file
-        
+    
+    #execute a given move string, and reduce pp.
     def execute_move(self, acting_player, move):
+        #this is gonna be a doozy to implement.g
         pass
         
         
@@ -96,9 +110,11 @@ class BattlePlayer:
             self.pm(client, "Invalid Response.")
         
     #asks the user (thru pm) what they want to do.
-    #Returns Move string, "concede", or "swap_poke"
-    #Options: Move, Swap, (Item?)
+    #Returns a list: first item is 'attack', 'swap', or 'concede'
+    #   if attck, second is attack name
+    #   if swap, second is last poke pos (curr is now selected)
     #You cant run-- what are you, a puss puss
+    
     async def get_move_decision(self, other_poke, client):
         moves = self.curr_party[self.active_poke].poke.moves
         while True:
