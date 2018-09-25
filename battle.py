@@ -35,32 +35,76 @@ class Battle:
             p1_move = p1.get_move_decision(p2.party[p2.active_poke])
             p2_move = p2.get_move_decision(p1.party[p1.active_poke])
             #could be Move string, "concede", or "swap_poke"
-            if   p1_move[0] == 'concede':
+            ###Concede###
+            if   p2_move[0] == 'concede' and p1_move == 'concede':
                 pass
-            elif p1_move[0] == 'swap':
-                pass
+                #Double Concede! match ends in a tie. (Gym challenger loses)
+                return
+            elif p1_move[0] == 'concede':
+                #p1 concedes
+                return
+            elif p2_move[0] == 'concede':
+                #p2 concedes
+                return
+            #At this point, we can be sure that no player is conceding    
+            ###Swap###
+            if p1_move[0] == 'swap':   #p1 always swaps first, it doesnt really matter anyway
+                self.swap_display(self.p1, p1_move[1], self.p1.curr_party[self.p1.active_poke])
+            if p2_move[0] == 'swap':
+                self.swap_display(self.p2, p2_move[1], self.p2.curr_party[self.p2.active_poke])
+
+            ###Attack###
+            if p1_move[0] == 'attack' and p2_move == 'attack':
+                #both attack
+                #TODO: use speed to determine first
             elif p1_move[0] == 'attack':
-                pass
+                #only p1 attack
+                order_num = 1
+            elif p2_move[0] == 'attack':
+                #only p2 attack
+                order_num = 2
             else:
-                print(f'somthing went wrong with a battle: invalid action "{p1_move[0]}"')
-           
+                order_num = 0
+            #With this loop, order_num has 5 cases.
+            #0: neither attack
+            #1: p1 attack only
+            #2: p2 attack only
+            #3: both att, p1 first
+            #4: both att, p2 first
+            #In this way, using a small loop we can cover all attacking patterns.
+            while order_num > 0:
+                if order_num % 2 == 0:
+                    self.execute_move(p2_move[1])
+                    order_num -= 3
+                else: #odd
+                    self.execute_move(p1_move[1])
+                    order_num -= 1
+                #TODO: Check if either pokemon has died
             
-            ##calculate first move
-            self.execute_move(p1_move)
-            if p2.curr_party[p2.active_poke].curr_hp <= 0:
-                pass 
-            self.execute_move(p2_move) #reorder me!
-            if p1.curr_party[p1.active_poke].curr_hp <= 0:
-                pass #swap to next
-            ##Attempt to swap pokemon
+            ##Attempt to swap pokemon on death
+            
         ##Declare winner
         ##Display AI endquote
         ##Award any XP/prizes
         ##Level pokemon and save to file
     
+    def check_for_death(self):
+        if self.p1.curr_party[self.p1.active_poke].curr_hp <= 0:
+            p1.swap_poke_after_death()
+        if self.p2.curr_party[self.p2.active_poke].curr_hp <= 0:
+            p2.swap_poke_after_death()
+        #TODO: Finish
+        
+    #says the string to swap two pokemon, and shows their pictures
+    def swap_display(self, player, old_poke, new_poke):
+        self.broadcast(f'{player.player.name} Swaps pokemon!')
+        self.broadcast(f'"{old_poke.poke.name} Come back!"')
+        self.broadcast(f'"Go! {new_poke.poke.name}!"')
+        #TODO: Display the poke's image
+        
     #execute a given move string, and reduce pp.
     def execute_move(self, acting_player, move):
-        #this is gonna be a doozy to implement.g
+        #this is gonna be a doozy to implement.
         pass
         
         
@@ -81,7 +125,7 @@ class BattlePlayer:
     #TOTALY NOT ROBOT
     def is_ai():
         return False
-    
+        
     def pm(self, client, message):
         await client.send_message(self.user, message)
         
