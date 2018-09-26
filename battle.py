@@ -94,9 +94,9 @@ class Battle:
             self.broadcast(f'{winner.player.name}: "' + winner.endquote+ '"')
         if loser.is_ai():
             self.broadcast(f'{loser.player.name}: "' + loser.lossquote + '"')
-        ##Display AI losing endquote
-        ##Award any XP/prizes
-        ##Level pokemon and save to file
+        ##TODO: Display AI losing endquote
+        ##TODO: Award any XP/prizes
+        ##TODO: Level pokemon and save to file
     
     #Checks for poke death, calls swtiching routines
     #Returns: False if game continues, True if game over
@@ -181,7 +181,6 @@ class BattlePlayer:
     #   if attck, second is attack name
     #   if swap, second is last poke pos (curr is now selected)
     #You cant run-- what are you, a puss puss
-    
     async def get_move_decision(self, other_poke, client):
         moves = self.curr_party[self.active_poke].poke.moves
         while True:
@@ -252,7 +251,7 @@ class BattleAI:
     def is_ai():
         return True
         
-    def get_move_decision(self, other_poke, client=None):
+    def get_input(self, other_poke, client=None):
         if strategy=='RAND':
             return random.choice(self.curr_party[self.active_poke].moves)
         pass

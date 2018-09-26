@@ -1,4 +1,4 @@
-import discord, os, instances, json, asyncio, traceback, pprint
+import discord, os, instances, battle, json, asyncio, traceback, pprint
 import math, random, time, datetime
 from poke_data import *
 cooldown = 3600 #seconds, == 1 hour
@@ -49,6 +49,8 @@ async def on_message(message):
                     await show_party(message)
                 elif cmd.startswith('pdetails '):
                     await party_details(message)
+                elif cmd == 'testfight':
+                    await test_fight(message)
             except KeyboardInterrupt as k:
                 raise k
             except Exception as e:
@@ -58,6 +60,8 @@ async def on_message(message):
         players_in_session.remove(message.author.id)  
     return
 
+#Attempt to find a wild poke. Will send to catch_poke or
+#fight_wild depending on player choice
 async def encounter_poke(message):
     #check if current user is a player
     if not await is_player(message):
@@ -131,7 +135,9 @@ async def encounter_poke(message):
     with open(timestamp_file, 'w') as f:
         json.dump(time_data, f)
     instances.write_player(player)
+
     
+#Add a poke to the players inventory
 async def catch_poke(message, player, poke):
     output = 'You caught ' + str(poke.name) + '!'
     done = False
@@ -156,7 +162,8 @@ async def catch_poke(message, player, poke):
             await client.send_message(message.channel, 'Invalid Response.')
         player.add_poke(poke)
     await client.send_message(message.channel, poke.name + ' added!')
-    
+ 
+#Attempt to fight the wild poke for xp. Uses a simplified fighting model. 
 async def fight_wild(message, player, poke):
     player_power = player.get_party_power()
     diff = player_power - poke.approx_power()
@@ -211,7 +218,9 @@ async def distribute_xp(message, player, xp):
                     msg += '\nThey are now level ' + str(poke.level) + '!'
                     await client.send_message(message.channel, msg)
                 await learn_new_moves(message, poke, poke.find_new_moves(og_level))
-                
+
+#Checks for any new moves to learn (post leveling)
+#Will play the animation, and give the player the ability to cancel                
 async def learn_new_moves(message, poke, moves):
     for move in moves:
         if len(poke.moves) < 4:
@@ -258,7 +267,8 @@ async def learn_new_moves(message, poke, moves):
                         done = True
                 elif response == 'o':
                     await client.send_message(message.channel, 'Error, Invalid Response.')
-                    
+
+#Adds a new member to the system, asking for basic identity info                    
 async def join_member(message):
     if message.author.id in players:
         await client.send_message(message.channel, 'You already joined!')
@@ -280,7 +290,9 @@ async def join_member(message):
             await client.send_message(message.channel, 'Registration canceled.')
         else:
             await client.send_message(message.channel, 'Invalid response.')
-                    
+
+#Wrapper for the pc, accepting command line boot commands
+#(Such as starting on a specifc page)         
 async def pc_wrapper(message):
     try:
         num = int(message.content.lower()[3:])
@@ -289,6 +301,9 @@ async def pc_wrapper(message):
     else:
         await show_boxes(message, curr_box=num-1)
 
+#boot up pc. The pc allows players to access they're full inventory of pokemon.
+#Each page of pc has a set size, and allows players to do various actions.
+#Can have infinite pages
 async def show_boxes(message, curr_box=0):
     if not await is_player(message):
         return
@@ -485,7 +500,18 @@ async def party_details(message):
         await show_poke_details(message, player.party[index-1])
     except Exception:
         await client.send_message(message.channel, 'Party index out of bounds.')
+
         
+async def test_fight(message):
+    player = instances.read_playerfile(message.author.id)
+    p1 = battle.BattlePlayer(player, message.author)
+    p2 = battle.BattleAI(#TODO-- make a generic bulbasaur
+                         'RAND',
+                         'Hey, I won!',
+                         'Hey, You won!')
+    battle = battle.Battle(p1, p2, client, message.channel)
+
+
 async def show_loc(message):
     location_name, timeleft = await get_location(return_timeleft=True)
     location_name = get_area_loc_name(location_name)
