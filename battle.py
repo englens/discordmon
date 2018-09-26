@@ -74,26 +74,47 @@ class Battle:
             #In this way, using a small loop we can cover all attacking patterns.
             while order_num > 0:
                 if order_num % 2 == 0:
-                    self.execute_move(p2_move[1])
+                    #self.execute_move(self.p2, self.p1, p2_move[1])
+                    self.execute_move(self.p2, self.p1, 'test_move')
                     order_num -= 3
+                    game_done = self.check_for_death(self.p1)
+                    if game_done:
+                        winner = self.p2
+                        loser = self.p1
                 else: #odd
-                    self.execute_move(p1_move[1])
+                    #self.execute_move(self.p1, self.p2, p1_move[1])
+                    self.execute_move(self.p1, self.p2, 'test_move')
                     order_num -= 1
-                #TODO: Check if either pokemon has died
-            
-            ##Attempt to swap pokemon on death
-            
-        ##Declare winner
-        ##Display AI endquote
+                    game_done = self.check_for_death(self.p2)
+                    if game_done:
+                        winner = self.p1
+                        loser = self.p2
+        self.broadcast(f'{winner.player.name} Wins!')
+        if winner.is_ai():
+            self.broadcast(f'{winner.player.name}: "' + winner.endquote+ '"')
+        if loser.is_ai():
+            self.broadcast(f'{loser.player.name}: "' + loser.lossquote + '"')
+        ##Display AI losing endquote
         ##Award any XP/prizes
         ##Level pokemon and save to file
     
-    def check_for_death(self):
-        if self.p1.curr_party[self.p1.active_poke].curr_hp <= 0:
-            p1.swap_poke_after_death()
-        if self.p2.curr_party[self.p2.active_poke].curr_hp <= 0:
-            p2.swap_poke_after_death()
-        #TODO: Finish
+    #Checks for poke death, calls swtiching routines
+    #Returns: False if game continues, True if game over
+    def check_for_death(self, player):
+        if player.curr_party[player.active_poke].curr_hp <= 0:
+            old = player.curr_party[player.active_poke]
+            self.broadcast(f'{old} faints!')
+            still_livin = False
+            for poke in player.curr_party:
+                if not poke.dead:
+                    still_livin = True
+            if still_livin:
+                player.swap_poke_after_death()
+                self.swap_display(player, old, player.curr_party[player.active_poke])
+            else:
+                self.broadcast(f'{player.player.name} Has no remaining pokemon!')
+                return True   #game is over
+            return False   #game continues
         
     #says the string to swap two pokemon, and shows their pictures
     def swap_display(self, player, old_poke, new_poke):
@@ -103,10 +124,12 @@ class Battle:
         #TODO: Display the poke's image
         
     #execute a given move string, and reduce pp.
-    def execute_move(self, acting_player, move):
+    def execute_move(self, acting_player, receiving_player, move):
         #this is gonna be a doozy to implement.
-        pass
-        
+        #For now, just do 1-30 damage
+        self.broadcast(f'{acting_player.curr_party[acting_player.active_poke] uses {move}!')
+        if move=='test_move':
+            receiving_player.curr_party[receiving_player.active_poke].curr_hp -= random.randrange(1, 30)
         
 #wrapper for player that has BattleMon Party
 #If one player is an ai, then that player must be p2
@@ -218,12 +241,12 @@ class BattlePlayer:
 #Has a set reward and endquote, Reward can be set to None
 #for exhibitions
 class BattleAI:
-    def __init__(self, party, strategy):
+    def __init__(self, party, strategy, endquote, lossquote):
         self.curr_party = party #should be battlemon
         self.active_poke = 0
-        self.endquote = endquote
-        self.bounty = bounty
         self.strategy = strategy
+        self.endquote = endquote
+        self.lossquote = lossquote
         
     #AM ROBOT BEEP BOOP
     def is_ai():
