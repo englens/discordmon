@@ -12,7 +12,7 @@ natures = ['hardy','lonely','brave','adamant','naughty','bold','docile','relaxed
 pic_file       = './data/pictures/male/'
 pic_file_shiny = './data/pictures/maleshiny/'
 pic_file_unown = './data/pictures/unown'
-player_path    = '../players/'
+PLAYER_PATH    = '../players/'
 unown_forms = list(string.ascii_lowercase)
 unown_forms.append('exclamation')
 unown_forms.append('question')
@@ -379,7 +379,7 @@ class Player:
         return {'id':self.id, 'name':self.name, 'boxes':[box.to_dict() for box in self.boxes], 'party':[poke.to_dict() for poke in self.party]}     
     
 def read_playerfile(id):
-    with open(player_path+str(id)+'.txt', 'r') as f:
+    with open(PLAYER_PATH+str(id)+'.txt', 'r') as f:
         data = json.load(f)
     id = data['id']
     name = data['name']
@@ -467,7 +467,7 @@ def make_for_encounter(location_area_index):
     
     
 def write_player(player):
-    with open(player_path+str(player.id)+'.txt', 'w') as f:
+    with open(PLAYER_PATH+str(player.id)+'.txt', 'w') as f:
         json.dump(player.to_dict(), f)
         
 def exp_for_level(level, mode):

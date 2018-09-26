@@ -6,12 +6,12 @@ exits = ['exit', 'e x i t', 'c', 'cancel', 'exiT', '"exit"', ';exit', ';cancel',
 client = discord.Client()
 prefix = ';'
 
-player_path    = '../players/'
-timestamp_file = './data/timestamps.txt'
-currloc_file = './data/currloc.txt'
+PLAYER_PATH    = '../players/'
+TIMESTAMP_FILE = './data/timestamps.txt'
+CURRLOC_FILE = './data/currloc.txt'
 locations = [name[:-4] for name in os.listdir('./data/locations/')]
-players = [name[:-4] for name in os.listdir(player_path)]
-
+players = [name[:-4] for name in os.listdir(PLAYER_PATH)]
+KEY_PATH = '../key.txt'
 PC_TIMEOUT = 60
 HOURS_LOC_DELAY = 4
 WILD_FIGHT_TIME = 3 #seconds
@@ -22,6 +22,7 @@ players_in_session = []
 async def on_ready():
     print('Online.')
 
+#handles incoming commands, and sends them to the relevant function
 @client.event
 async def on_message(message):
     if message.author != client.user and message.author.id not in players_in_session:
@@ -60,15 +61,16 @@ async def on_message(message):
         players_in_session.remove(message.author.id)  
     return
 
-#Attempt to find a wild poke. Will send to catch_poke or
+#Command to attempt to find a wild poke. Will send to catch_poke or
 #fight_wild depending on player choice
+#Params: NONE
 async def encounter_poke(message):
     #check if current user is a player
     if not await is_player(message):
         return
     player = instances.read_playerfile(message.author.id)
     #check if the correct amount of time has passed
-    with open(timestamp_file, 'r') as f:
+    with open(TIMESTAMP_FILE, 'r') as f:
         time_data = json.load(f)
     if player.id in time_data:
         last_time = time_data[player.id]
@@ -129,10 +131,10 @@ async def encounter_poke(message):
                 output = 'Invalid Response.'
     #player should have encountered a poke to get here
     #update the players timeout, they will have to wait through the timeout again after
-    with open(timestamp_file, 'r') as f:
+    with open(TIMESTAMP_FILE, 'r') as f:
         time_data = json.load(f)
     time_data[player.id] = int(time.time())
-    with open(timestamp_file, 'w') as f:
+    with open(TIMESTAMP_FILE, 'w') as f:
         json.dump(time_data, f)
     instances.write_player(player)
 
@@ -180,8 +182,8 @@ async def fight_wild(message, player, poke):
     else:
         await client.send_message(message.channel, 'You lost the battle...')
 
-#TODO: Seperate message code from here (put in add xp code, then return message).
 #Distributes xp amung a players party, and displays appropirate level messages
+#TODO: Seperate message code from here (put in add xp code, then return message).
 async def distribute_xp(message, player, xp):
     if player.party == []:
         return
@@ -268,7 +270,7 @@ async def learn_new_moves(message, poke, moves):
                 elif response == 'o':
                     await client.send_message(message.channel, 'Error, Invalid Response.')
 
-#Adds a new member to the system, asking for basic identity info                    
+#Adds a new member to the system, asking for basic identity info                
 async def join_member(message):
     if message.author.id in players:
         await client.send_message(message.channel, 'You already joined!')
@@ -291,8 +293,9 @@ async def join_member(message):
         else:
             await client.send_message(message.channel, 'Invalid response.')
 
-#Wrapper for the pc, accepting command line boot commands
-#(Such as starting on a specifc page)         
+#Wrapper command for the pc, accepting command line boot commands
+#(Such as starting on a specifc page)
+#Params: BootPc_Index
 async def pc_wrapper(message):
     try:
         num = int(message.content.lower()[3:])
@@ -301,7 +304,9 @@ async def pc_wrapper(message):
     else:
         await show_boxes(message, curr_box=num-1)
 
-#boot up pc. The pc allows players to access they're full inventory of pokemon.
+#Command to boot up pc.
+#Params: NONE
+#The pc allows players to access they're full inventory of pokemon.
 #Each page of pc has a set size, and allows players to do various actions.
 #Can have infinite pages
 async def show_boxes(message, curr_box=0):
@@ -441,7 +446,9 @@ async def show_boxes(message, curr_box=0):
             done = True
     await client.send_message(message.channel, player.name + '\'s PC closed.')
     instances.write_player(player)
-    
+
+#Shows all the realevant data for a specific pokemon.
+#Some data is intentionally hidden: ivs, evs mainly.
 async def show_poke_details(message, poke):
     await client.send_message(message.channel, '```Details for ' + poke.name + ':```')
     await send_pic(message, poke)
@@ -460,6 +467,8 @@ async def show_poke_details(message, poke):
     output += '\n--------------```'
     await client.send_message(message.channel, output)
 
+#Command to show details of a box pokemon without opening the pc.
+#Params: Box_number, Pokemon_box_index
 async def quick_details(message):
     params =  message.content.split()
     try:
@@ -485,7 +494,9 @@ async def quick_details(message):
         await client.send_message(message.channel, 'PC Closed.')
     except Exception:
         await client.send_message(message.channel, 'Box index out of bounds.')
-        
+
+#Shortcut command to display a party pokemons details.
+#Params: Party_index.
 async def party_details(message):
     params = message.content.split()
     try:
@@ -501,22 +512,25 @@ async def party_details(message):
     except Exception:
         await client.send_message(message.channel, 'Party index out of bounds.')
 
-        
+#test command to fight a simple AI.
+#Params: NONE
 async def test_fight(message):
     player = instances.read_playerfile(message.author.id)
     p1 = battle.BattlePlayer(player, message.author)
-    p2 = battle.BattleAI(#TODO-- make a generic bulbasaur
+    p2 = battle.BattleAI([instances.read_pokedict(p1.curr_party[0].poke.to_dict())],
                          'RAND',
                          'Hey, I won!',
                          'Hey, You won!')
     battle = battle.Battle(p1, p2, client, message.channel)
-
-
+    battle.play_battle()
+    
+#Helper funct to display the current catching location
 async def show_loc(message):
     location_name, timeleft = await get_location(return_timeleft=True)
     location_name = get_area_loc_name(location_name)
     await client.send_message(message.channel, 'Current Location: ' + location_name.replace('-',' ').title() + '\nHours Remaining: '+str(timeleft))
 
+#Helper funct to display an overview of the players party
 async def show_party(message):
     if not await is_player(message):
         return
@@ -526,14 +540,14 @@ async def show_party(message):
 #check if user registered, if not let them know to register    
 async def is_player(message):
     global players
-    players = [name[:-4] for name in os.listdir(player_path)]
+    players = [name[:-4] for name in os.listdir(PLAYER_PATH)]
     if message.author.id in players:
         return True
     else:
         await client.send_message(message.channel, 'Error, please register using ";join"!')
         return False
         
-#for when you ask the user a yes or no question
+#Helper funct for when you ask the user a yes or no question
 async def yes_or_no(message, question, can_cancel=False):
     if can_cancel:
         await client.send_message(message.channel, question+'\n(y/n), or "cancel" to cancel')
@@ -553,14 +567,19 @@ async def yes_or_no(message, question, can_cancel=False):
     else:
         return 'o'
 
+#Display a given poke's pic (correctly adjusts for shinies, unown, nido, etc)
 async def send_pic(message, poke):
     await client.send_file(message.channel, poke.get_pic())
 
+#Converts given amount of seconds to minutes (and rounds)
 async def seconds_to_minutes(t):
     return int(t/60)
-   
+
+#Reads the current location from the database. If enough time has passed
+#since the last loc change, change the location. Setting force to True 
+#forces this change.
 async def get_location(return_timeleft=False, force=False):
-    with open(currloc_file, 'r') as f:
+    with open(CURRLOC_FILE, 'r') as f:
         stored_loc = json.load(f)
     curr_now = datetime.datetime.now()
     curr_time = curr_now.day*24 + curr_now.hour
@@ -570,12 +589,15 @@ async def get_location(return_timeleft=False, force=False):
         loc = random.choice(locations)
         print('New Location:'+loc)
         stored_loc['loc'] = loc
-        with open(currloc_file, 'w') as f:
+        with open(CURRLOC_FILE, 'w') as f:
             json.dump(stored_loc,f)
     if return_timeleft:
         return stored_loc['loc'], HOURS_LOC_DELAY - (curr_time - stored_loc['time'])
     return stored_loc['loc']
 
+#Looks through a players party, and sees if any pokemon is eligable to evolve
+#This is based on the given evolution trigger.
+#Params item and tradewith are used for specific types of evolution.
 async def check_apply_evo(message, player, trigger, item=None, tradewith=None):
     for poke in player.party:
         evo = poke.find_evo(trigger, await get_location(), player, item, tradewith)
@@ -593,7 +615,9 @@ async def check_apply_evo(message, player, trigger, item=None, tradewith=None):
                 poke.name = get_poke_name(evo)
             poke.id = int(evo)
             await show_poke_details(message, poke)
-            
+
+#Runs the client, and retrys if the connection fails.
+#Dont use this! it doesnt really work-- just make a batch/sh file to loop it.            
 def run_client(client, *args, **kwargs):
     loop = asyncio.get_event_loop()
     while True:
@@ -607,10 +631,11 @@ def run_client(client, *args, **kwargs):
         time.sleep(60)
         
         
-            
-with open('../key.txt', 'r') as f:
+#file is stored in a seperate file (outside the repo).
+#This is to keep the key off github
+with open(KEY_PATH, 'r') as f:
     key = f.read() 
-#client.run(key)
 
-run_client(client, key)
+client.run(key)
+#run_client(client, key)
 

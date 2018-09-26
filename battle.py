@@ -1,5 +1,5 @@
 from poke_data import *
-import random, instances, discordmon
+import random, instances, discordmon, discord, asyncio
 MAX_RETRYS = 20
 
 #wrapper for Pokemon that also has temp data
@@ -24,8 +24,9 @@ class Battle:
         #Public channel of match. will PM members for moves.
         self.client = client
         self.fight_channel = fight_channel
+        
     def broadcast(self, msg):
-        await client.send_message(self.fight_channel, msg)
+        self.client.send_message(self.fight_channel, msg)
         
     #plays and finishes the battle. returns winner and updated playerclasses
     def play_battle(self):
@@ -57,6 +58,7 @@ class Battle:
             if p1_move[0] == 'attack' and p2_move == 'attack':
                 #both attack
                 #TODO: use speed to determine first
+                order_num == 4 #just for testing
             elif p1_move[0] == 'attack':
                 #only p1 attack
                 order_num = 1
@@ -72,6 +74,8 @@ class Battle:
             #3: both att, p1 first
             #4: both att, p2 first
             #In this way, using a small loop we can cover all attacking patterns.
+            if order_num == 0:
+                self.broadcast('...Nobody does anything! (?)')
             while order_num > 0:
                 if order_num % 2 == 0:
                     #self.execute_move(self.p2, self.p1, p2_move[1])
@@ -127,7 +131,7 @@ class Battle:
     def execute_move(self, acting_player, receiving_player, move):
         #this is gonna be a doozy to implement.
         #For now, just do 1-30 damage
-        self.broadcast(f'{acting_player.curr_party[acting_player.active_poke] uses {move}!')
+        self.broadcast(f'acting_player.curr_party[acting_player.active_poke] uses {move}!')
         if move=='test_move':
             receiving_player.curr_party[receiving_player.active_poke].curr_hp -= random.randrange(1, 30)
         
@@ -150,14 +154,14 @@ class BattlePlayer:
         return False
         
     def pm(self, client, message):
-        await client.send_message(self.user, message)
+        client.send_message(self.user, message)
         
     def get_input(self, client, valid_responses, question):
         done = False
         count = 0
         while not done:
             count += 0
-            await cilent.send_message(self.user, question)
+            cilent.send_message(self.user, question)
             #find the private channel
             p_channel = None
             for pc in client.private_channels:
@@ -166,7 +170,7 @@ class BattlePlayer:
                     break
             if p_channel is None:
                 return
-            response = await client.wait_for_message(author=self.user, channel=p_channel, timeout=60)
+            response = client.wait_for_message(author=self.user, channel=p_channel, timeout=60)
             if response is None:
                 return None  #Let timeout run out
             response = lower(response)
@@ -191,8 +195,8 @@ class BattlePlayer:
             #Move input loop (until a correct move is picked)
             response = self.get_input(client, ['1', '2', '3', '4', 'switch', 'concede'], question)
                 #if player went 60 seconds without timeout, or too many err inputs, no moves
-            elif response is None:
-                return None  
+            if response is None:
+                return 'skip'  
                 #This is if they didn't input a move.
                 #Turn is skipped.
             if response   == "1":
