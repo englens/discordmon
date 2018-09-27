@@ -199,11 +199,11 @@ class BattlePlayer:
                 return 'skip'  
                 #This is if they didn't input a move.
                 #Turn is skipped.
-            if response   == "1":
+            if response   == '1':
                 return moves[0]
-            elif response == "2":
+            elif response == '2':
                 return moves[1]
-            elif response == "3":
+            elif response == '3':
                 return moves[2]
             elif response == '4':
                 return moves[3]
