@@ -1,3 +1,6 @@
 ./data/timestamps.txt
 ./data/currloc.txt
 ./__pycache__/*
+.\data\timestamps.txt
+.\data\currloc.txt
+.\__pycache__\*
