@@ -1,17 +1,24 @@
-import discord, os, instances, battle, json, asyncio, traceback, pprint
+import discord, os, instances, json, asyncio, traceback, pprint
 import math, random, time, datetime
+import battle as bat
 from poke_data import *
+from pathlib import Path
 cooldown = 3600 #seconds, == 1 hour
 exits = ['exit', 'e x i t', 'c', 'cancel', 'exiT', '"exit"', ';exit', ';cancel', 'close', 'exit\\']
 client = discord.Client()
 prefix = ';'
 
-PLAYER_PATH    = '../players/'
-TIMESTAMP_FILE = './data/timestamps.txt'
-CURRLOC_FILE = './data/currloc.txt'
-locations = [name[:-4] for name in os.listdir('./data/locations/')]
-players = [name[:-4] for name in os.listdir(PLAYER_PATH)]
-KEY_PATH = '../key.txt'
+PLAYER_PATH    = Path('../players/')
+TIMESTAMP_FILE = Path('./data/timestamps.txt')
+CURRLOC_FILE = Path('./data/currloc.txt')
+LOC_PATH = Path('./data/locations/')
+locations = [Path(name).stem for name in LOC_PATH.iterdir()]
+try:
+    players = [Path(name).stem for name in os.listdir(PLAYER_PATH)]
+except FileNotFoundError:
+    with open(PLAYER_PATH / 'dummy.txt', 'w+') as f:
+        f.write('[]')
+KEY_PATH = Path('../key.txt')
 PC_TIMEOUT = 60
 HOURS_LOC_DELAY = 4
 WILD_FIGHT_TIME = 3 #seconds
@@ -516,13 +523,17 @@ async def party_details(message):
 #Params: NONE
 async def test_fight(message):
     player = instances.read_playerfile(message.author.id)
-    p1 = battle.BattlePlayer(player, message.author)
-    p2 = battle.BattleAI([instances.read_pokedict(p1.curr_party[0].poke.to_dict())],
-                         'RAND',
-                         'Hey, I won!',
-                         'Hey, You won!')
-    battle = battle.Battle(p1, p2, client, message.channel)
-    battle.play_battle()
+    p1 = bat.BattlePlayer(player, message.author)
+    robot_poke = p1.curr_party[0].poke.to_dict()
+    robot_poke['name'] += '_bot'
+    robot_poke = instances.read_pokedict(robot_poke)
+    p2 = bat.BattleAI('Mr. Roboto',
+                      [robot_poke],
+                      'RAND',
+                      'Hey, I won!',
+                      'Hey, You won!')
+    battle = bat.Battle(p1, p2, client, message.channel)
+    await battle.play_battle()
     
 #Helper funct to display the current catching location
 async def show_loc(message):

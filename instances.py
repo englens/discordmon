@@ -1,5 +1,6 @@
 import random, datetime, string
 from pprint import pprint
+from pathlib import Path
 from poke_data import *
 version_id = 1
 MISS_CHANCE = 1
@@ -9,10 +10,10 @@ XP_DIVISOR = 2
 natures = ['hardy','lonely','brave','adamant','naughty','bold','docile','relaxed',
            'impish','lax','timid','hasty','serious','jolly','naive','modest',
            'mild','quiet','bashful','rash','calm','gentle','sassy','careful','quirky']
-pic_file       = './data/pictures/male/'
-pic_file_shiny = './data/pictures/maleshiny/'
-pic_file_unown = './data/pictures/unown'
-PLAYER_PATH    = '../players/'
+pic_file       = Path('./data/pictures/male/')
+pic_file_shiny = Path('./data/pictures/maleshiny/')
+pic_file_unown = Path('./data/pictures/unown')
+PLAYER_PATH    = Path('../players/')
 unown_forms = list(string.ascii_lowercase)
 unown_forms.append('exclamation')
 unown_forms.append('question')
@@ -47,15 +48,15 @@ class Pokemon:
     def get_pic(self):
         if int(self.id) == 201:
             if self.is_shiny:
-                return pic_file_unown + '/shiny/' + str(self.form) +'.png'
+                return pic_file_unown / ('/shiny/' + str(self.form) +'.png')
             else:
-                return pic_file_unown + '/default/' + str(self.form) +'.png'
+                return pic_file_unown / ('/default/' + str(self.form) +'.png')
                 
             
         if self.is_shiny == True:
-            return pic_file_shiny  + str(self.id)+'.png'
+            return pic_file_shiny  / (str(self.id)+'.png')
         else:
-            return pic_file + str(self.id)+'.png'
+            return pic_file / (str(self.id)+'.png')
         
     def get_base_stats(self):
         return get_stats(self.id)
@@ -379,7 +380,7 @@ class Player:
         return {'id':self.id, 'name':self.name, 'boxes':[box.to_dict() for box in self.boxes], 'party':[poke.to_dict() for poke in self.party]}     
     
 def read_playerfile(id):
-    with open(PLAYER_PATH+str(id)+'.txt', 'r') as f:
+    with open(PLAYER_PATH/ (str(id)+'.txt'), 'r') as f:
         data = json.load(f)
     id = data['id']
     name = data['name']
@@ -467,7 +468,7 @@ def make_for_encounter(location_area_index):
     
     
 def write_player(player):
-    with open(PLAYER_PATH+str(player.id)+'.txt', 'w') as f:
+    with open(PLAYER_PATH / (str(player.id)+'.txt'), 'w') as f:
         json.dump(player.to_dict(), f)
         
 def exp_for_level(level, mode):

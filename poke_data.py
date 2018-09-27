@@ -1,20 +1,21 @@
 import requests, json, random, os
+from pathlib import Path
 """Various Scripts dealing with the pokeapi database
 and local copies of the data."""
 
 url = 'http://pokeapi.co/api/v2/'
-pokemon_path   = './data/pokemon_reference/'
-location_path  = './data/locations/'
-species_path   = './data/species_reference/'
-evo_chain_path = './data/chain_reference/'
-move_path      = './data/move_reference/'
+pokemon_path   = Path('./data/pokemon_reference/')
+location_path  = Path('./data/locations/')
+species_path   = Path('./data/species_reference/')
+evo_chain_path = Path('./data/chain_reference/')
+move_path      = Path('./data/move_reference/')
 FISH_REDUCTION = 4 #divided by this number
 
 #write specific pokemon to storage, stored as <id>.txt
 def write_pokemon_reference(name):
     txt = fetch_poke(name)
     print('working on:' + txt['name'])
-    with open(pokemon_path+str(name)+'.txt', 'w+') as f:
+    with open(pokemon_path/ (str(name)+'.txt'), 'w+') as f:
         f.write(json.dumps(txt))
 
 #write every kanto pokemon to storage
@@ -34,7 +35,7 @@ def write_region_areas(locs):
             write_area(area)
         
 def write_move(move):
-    with open(move_path+move['name']+'.txt', 'w') as f:
+    with open(move_path / (move['name']+'.txt'), 'w') as f:
         json.dump(move, f)
         print('wrote ' + str(move['name']))
         
@@ -44,7 +45,7 @@ def write_area(area):
     id = area['id']
     print('working on:' + str(area['name']))
     #filename = location_path+str(location)+'/'+str(id)+'.txt'
-    filename = location_path+str(id)+'.txt'
+    filename = location_path / (str(id)+'.txt')
     #create file if it doesn't exist. Found this script on StackExchange :-)
     if not os.path.exists(os.path.dirname(filename)):
         try:
@@ -63,12 +64,12 @@ def write_all_species():
 
 def write_species(id):
     spec = fetch_species(id)
-    with open(species_path+str(id)+'.txt', 'w') as f:
+    with open(species_path / (str(id)+'.txt'), 'w') as f:
         json.dump(spec, f)
 
 #grab pokemon data from local storage, must use id
 def get_poke(id):
-    with open(pokemon_path+str(id)+'.txt') as f:
+    with open(pokemon_path / (str(id)+'.txt')) as f:
         data = json.load(f)
     return data
     
@@ -88,7 +89,7 @@ def get_poke_abilites(id):
     
 def get_move(name):
     try:
-        with open(move_path+name+'.txt', 'r') as f:
+        with open(move_path / (name+'.txt'), 'r') as f:
             move = json.load(f)
     except OSError:
         move = fetch_move(name)
@@ -118,18 +119,18 @@ def get_poke_evos(id):
     return link['evolves_to']
     
 def get_evo_chain(id):
-    with open(evo_chain_path+str(id)+'.txt', 'r') as f:
+    with open(evo_chain_path / (str(id)+'.txt'), 'r') as f:
         data = json.load(f)
     return data
     
 def write_evo_chain(url):
     data = requests.get(url).json()
-    with open (evo_chain_path+str(data['id'])+'.txt', 'w') as f:
+    with open (evo_chain_path / (str(data['id'])+'.txt'), 'w') as f:
         json.dump(data, f)
     return data
     
 def get_area(id):
-    with open(location_path+str(id)+'.txt') as f:
+    with open(location_path / (str(id)+'.txt')) as f:
         data = json.load(f)
     return data
 
@@ -222,7 +223,7 @@ def get_area_gen1_pokemon_data(area_id):
     return ids, level_ranges, range_chances
     
 def get_species(id):
-    with open(species_path+str(id)+'.txt', 'r') as f:
+    with open(species_path / (str(id)+'.txt'), 'r') as f:
         data = json.load(f)
     return data
   
