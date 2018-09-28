@@ -34,8 +34,6 @@ class Battle:
         while not game_done:
             p1_move = await self.p1.get_move_decision(self.p2.curr_party[self.p2.active_poke], self.client)
             p2_move = await self.p2.get_move_decision(self.p1.curr_party[self.p1.active_poke], self.client)
-            print(f'P1 Decision: {p1_move[0]}')
-            print(f'P2 Decision: {p2_move[0]}')
             #could be Move string, "concede", or "swap_poke"
             ###Concede###
             if   p2_move[0] == 'concede' and p1_move == 'concede':
@@ -60,10 +58,10 @@ class Battle:
                 await self.swap_display(self.p2, p2_move[1], self.p2.curr_party[self.p2.active_poke])
 
             ###Attack###
-            if p1_move[0] == 'attack' and p2_move == 'attack':
+            if p1_move[0] == 'attack' and p2_move[0] == 'attack':
                 #both attack
                 #TODO: use speed to determine first
-                order_num == 4 #just for testing
+                order_num = 4 #just for testing
             elif p1_move[0] == 'attack':
                 #only p1 attack
                 order_num = 1
@@ -72,6 +70,7 @@ class Battle:
                 order_num = 2
             else:
                 order_num = 0
+
             #With this loop, order_num has 5 cases.
             #0: neither attack
             #1: p1 attack only
@@ -79,12 +78,14 @@ class Battle:
             #3: both att, p1 first
             #4: both att, p2 first
             #In this way, using a small loop we can cover all attacking patterns.
+            await asyncio.sleep(2)
             if order_num == 0:
                 await self.broadcast('...Nobody does anything! (?)')
             while order_num > 0:
                 if order_num % 2 == 0:
                     #self.execute_move(self.p2, self.p1, p2_move[1])
-                    await self.execute_move(self.p2, self.p1, 'test_move')
+                    output = await self.execute_move(self.p2, self.p1, 'test_move')
+                    await self.broadcast(output)
                     order_num -= 3
                     game_done = await self.check_for_death(self.p1)
                     if game_done:
@@ -92,17 +93,19 @@ class Battle:
                         loser = self.p1
                 else: #odd
                     #self.execute_move(self.p1, self.p2, p1_move[1])
-                    await self.execute_move(self.p1, self.p2, 'test_move')
+                    output = await self.execute_move(self.p1, self.p2, 'test_move')
+                    await self.broadcast(output)
                     order_num -= 1
                     game_done = await self.check_for_death(self.p2)
                     if game_done:
                         winner = self.p1
                         loser = self.p2
-        await self.broadcast(f'{winner.player.name} Wins!')
+                await asyncio.sleep(1.5)
+        await self.broadcast(f'{winner.get_name()} Wins!')
         if winner.is_ai():
-            await self.broadcast(f'{winner.player.name}: "' + winner.endquote+ '"')
+            await self.broadcast(f'{winner.get_name()}: "' + winner.endquote+ '"')
         if loser.is_ai():
-            await self.broadcast(f'{loser.player.name}: "' + loser.lossquote + '"')
+            await self.broadcast(f'{loser.get_name()}: "' + loser.lossquote + '"')
         ##TODO: Display AI losing endquote
         ##TODO: Award any XP/prizes
         ##TODO: Level pokemon and save to file
@@ -112,6 +115,7 @@ class Battle:
     async def check_for_death(self, player):
         if player.curr_party[player.active_poke].curr_hp <= 0:
             old = player.curr_party[player.active_poke]
+            old.dead = True
             await self.broadcast(f'{old.poke.name} faints!')
             still_livin = False
             for poke in player.curr_party:
@@ -121,24 +125,31 @@ class Battle:
                 await player.swap_poke_after_death()
                 await self.swap_display(player, old, player.curr_party[player.active_poke])
             else:
-                await self.broadcast(f'{player.player.name} Has no remaining pokemon!')
+                await self.broadcast(f'{player.get_name()} Has no remaining pokemon!')
                 return True   #game is over
             return False   #game continues
         
     #says the string to swap two pokemon, and shows their pictures
     async def swap_display(self, player, old_poke, new_poke):
-        await self.broadcast(f'{player.name()} Swaps pokemon!')
-        await self.broadcast(f'"{old_poke.poke.name} Come back!"')
-        await self.broadcast(f'"Go! {new_poke.poke.name}!"')
+        output = ''
+        output += f'{player.get_name()} Swaps pokemon!\n'
+        output += f'"{old_poke.poke.name} Come back!"\n'
+        output += f'"Go! {new_poke.poke.name}!"'
+        self.broadcast(output)
         #TODO: Display the poke's image
         
     #execute a given move string, and reduce pp.
     async def execute_move(self, acting_player, receiving_player, move):
+        a_poke = acting_player.curr_party[acting_player.active_poke]
+        r_poke = receiving_player.curr_party[receiving_player.active_poke]
+        old_hp = r_poke.curr_hp
+        output = f'{a_poke.poke.name} uses {move}!\n'
         #this is gonna be a doozy to implement.
         #For now, just do 1-30 damage
-        await self.broadcast(f'{acting_player.curr_party[acting_player.active_poke].poke.name} uses {move}!')
         if move=='test_move':
-            receiving_player.curr_party[receiving_player.active_poke].curr_hp -= random.randrange(1, 30)
+            r_poke.curr_hp -= random.randrange(1, 30)
+            output += f'{r_poke.poke.name} takes {old_hp - r_poke.curr_hp} damage!'
+        return output
         
 #wrapper for player that has BattleMon Party
 #If one player is an ai, then that player must be p2
@@ -155,10 +166,10 @@ class BattlePlayer:
         self.remaining_pokemon = len(self.curr_party)
     
     #TOTALY NOT ROBOT
-    def is_ai():
+    def is_ai(self):
         return False
         
-    def name(self):
+    def get_name(self):
         return self.player.name 
         
     async def pm(self, client, message):
@@ -192,6 +203,8 @@ class BattlePlayer:
     async def swap_poke_after_death(self):
         pass #TODO: Dialog to send out a new pokemon
         #May make a general swapping dialog for reuse for the normal swap funct
+        
+        
     #asks the user (thru pm) what they want to do.
     #Returns a list: first item is 'attack', 'swap', or 'concede'
     #   if attck, second is attack name
@@ -254,6 +267,7 @@ class BattlePlayer:
 #for exhibitions
 class BattleAI:
     def __init__(self, name, party, strategy, endquote, lossquote):
+        self.name = name
         self.curr_party = []
         for p in party:
             self.curr_party.append(BattleMon(p))
@@ -263,9 +277,9 @@ class BattleAI:
         self.lossquote = lossquote
         
     #AM ROBOT BEEP BOOP
-    def is_ai():
+    def is_ai(self):
         return True
-    def name(self):
+    def get_name(self):
         return self.name
         
     async def get_move_decision(self, other_poke, client=None):
