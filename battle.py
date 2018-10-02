@@ -1,5 +1,5 @@
 from poke_data import *
-import random, discord, asyncio
+import random, discord, asyncio, math
 MAX_RETRYS = 20
 
 #wrapper for Pokemon that also has temp data
@@ -28,10 +28,41 @@ class Battle:
     async def broadcast(self, msg):
         await self.client.send_message(self.fight_channel, msg)
         
+    async def display(self):
+        p1_poke = self.p1.curr_party[self.p1.active_poke]
+        p1_bars = math.floor((p1_poke.poke.get_hp() / p1_poke.curr_hp) * 10) #TODO: FIX
+        p1_bar_str = '#'*p1_bars + '-'*(10-p1_bars)
+        p1_status = [] #TODO
+        p1_status_str = ''
+        for s in p1_status:
+            p1_status_str += '['+s+']'
+        p1_poke_ln = p1_poke.poke.name + p1_status_str
+        
+        p2_poke = self.p2.curr_party[self.p2.active_poke]
+        p2_bars = math.floor((p2_poke.poke.get_hp() / p2_poke.curr_hp) * 10) #TODO: FIX
+        p2_bar_str = '-'*(10-p1_bars) + '#'*p1_bars
+        p2_status = []  #TODO
+        p2_status_str = ''
+        for s in p2_status:
+            p2_status_str += '['+s+']'
+        p2_poke_ln = p2_status_str+ p2_poke.poke.name
+        output  = '```'
+        output += '---------Battle------------\n' 
+        output += f'          {p2_poke.poke.name}{p1_status_str}\n'
+        output += f'                 {p1_bar_str}\n'
+        output += '\n'
+        output += '\n'
+        output += f'{p2_poke.poke.name} {p2_status_str}\n'
+        output += p2_bar_str+'\n'
+        output += '---------------------------\n'
+        output += 'Please Select a move in your DMs!```'
+        await self.broadcast(output)
+        
     #plays and finishes the battle. returns winner and updated playerclasses
     async def play_battle(self):
         game_done = False
         while not game_done:
+            await self.display()
             p1_move = await self.p1.get_move_decision(self.p2.curr_party[self.p2.active_poke], self.client)
             p2_move = await self.p2.get_move_decision(self.p1.curr_party[self.p1.active_poke], self.client)
             #could be Move string, "concede", or "swap_poke"
