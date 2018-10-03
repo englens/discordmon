@@ -30,31 +30,39 @@ class Battle:
         
     async def display(self):
         p1_poke = self.p1.curr_party[self.p1.active_poke]
-        p1_bars = math.floor((p1_poke.poke.get_hp() / p1_poke.curr_hp) * 10) #TODO: FIX
-        p1_bar_str = '#'*p1_bars + '-'*(10-p1_bars)
+        p1_hp_bars = math.floor((p1_poke.curr_hp/p1_poke.poke.get_hp()) * 10) #TODO: FIX
+        p1_bar_str = '#'*p1_hp_bars + '-'*(10-p1_hp_bars)
         p1_status = [] #TODO
         p1_status_str = ''
         for s in p1_status:
             p1_status_str += '['+s+']'
-        p1_poke_ln = p1_poke.poke.name + p1_status_str
+        p1_poke_ln = p1_poke.poke.name +' '+ p1_status_str
         
         p2_poke = self.p2.curr_party[self.p2.active_poke]
-        p2_bars = math.floor((p2_poke.poke.get_hp() / p2_poke.curr_hp) * 10) #TODO: FIX
-        p2_bar_str = '-'*(10-p1_bars) + '#'*p1_bars
+        p2_hp_bars = math.floor((p2_poke.curr_hp/p2_poke.poke.get_hp()) * 10) #TODO: FIX
+        p2_bar_str = '-'*(10-p1_hp_bars) + '#'*p1_hp_bars
         p2_status = []  #TODO
         p2_status_str = ''
         for s in p2_status:
             p2_status_str += '['+s+']'
-        p2_poke_ln = p2_status_str+ p2_poke.poke.name
-        output  = '```'
-        output += '---------Battle------------\n' 
-        output += f'          {p2_poke.poke.name}{p1_status_str}\n'
-        output += f'                 {p1_bar_str}\n'
-        output += '\n'
-        output += '\n'
-        output += f'{p2_poke.poke.name} {p2_status_str}\n'
-        output += p2_bar_str+'\n'
-        output += '---------------------------\n'
+        p2_poke_ln = p2_status_str+' '+ p2_poke.poke.name
+        
+        maxlen = max(len(p2_poke_ln),len(p2_bar_str),len(p1_poke_ln),len(p1_bar_str)) + 10
+        p1_bar_str = p1_bar_str + ' '*(maxlen-len(p1_bar_str))
+        p1_poke_ln = p1_poke_ln + ' '*(maxlen-len(p1_poke_ln))
+        p2_bar_str = ' '*(maxlen-len(p2_bar_str)) + p2_bar_str 
+        p2_poke_ln = ' '*(maxlen-len(p2_poke_ln)) + p2_poke_ln 
+        battle_string = '|-Battle'+ '-'*(maxlen-7)
+        bottom_string = '-'*maxlen
+        output  = '```\n'
+        output += battle_string+ '|\n|' 
+        output += p2_poke_ln+'|\n|' 
+        output += p2_bar_str+'|\n|' 
+        output += ' '*maxlen + '|\n|'
+        output += ' '*(maxlen//2-1) + 'VS' +' '*(maxlen//2-1) + '|\n|'
+        output += p1_poke_ln+'|\n|' 
+        output += p1_bar_str+'|\n|' 
+        output += bottom_string+'|\n' 
         output += 'Please Select a move in your DMs!```'
         await self.broadcast(output)
         
@@ -116,7 +124,7 @@ class Battle:
                 if order_num % 2 == 0:
                     #self.execute_move(self.p2, self.p1, p2_move[1])
                     output = await self.execute_move(self.p2, self.p1, 'test_move')
-                    await self.broadcast(output)
+                    await self.broadcast('```'+output+'```')
                     order_num -= 3
                     game_done = await self.check_for_death(self.p1)
                     if game_done:
@@ -125,7 +133,7 @@ class Battle:
                 else: #odd
                     #self.execute_move(self.p1, self.p2, p1_move[1])
                     output = await self.execute_move(self.p1, self.p2, 'test_move')
-                    await self.broadcast(output)
+                    await self.broadcast('```'+output+'```')
                     order_num -= 1
                     game_done = await self.check_for_death(self.p2)
                     if game_done:
@@ -137,7 +145,6 @@ class Battle:
             await self.broadcast(f'{winner.get_name()}: "' + winner.endquote+ '"')
         if loser.is_ai():
             await self.broadcast(f'{loser.get_name()}: "' + loser.lossquote + '"')
-        ##TODO: Display AI losing endquote
         ##TODO: Award any XP/prizes
         ##TODO: Level pokemon and save to file
     
@@ -324,4 +331,7 @@ class BattleAI:
             self.active_poke = random.choice(range(len(self.curr_party)))
             print(f'Swapped to: {self.active_poke}')
             #TODO: Fix infinite loop on last dead
-        
+
+#loads a json file describing an npc ai.            
+def load_battle_ai_file(ai_id):
+    
