@@ -1,7 +1,8 @@
 from poke_data import *
-import random, discord, asyncio, math
+from pathlib import Path
+import random, discord, asyncio, math, regex, instances
 MAX_RETRYS = 20
-
+NPC_PATH = Path('./data/npcs/')
 #wrapper for Pokemon that also has temp data
 class BattleMon:
     def __init__(self, poke):
@@ -19,8 +20,8 @@ class BattleMon:
 #In discordmon.py, Make a battle object and then call play_battle()     
 class Battle:
     def __init__(self, p1, p2, client, fight_channel):
-        self.p1 = p1 #member/user
-        self.p2 = p2 #member/user
+        self.p1 = p1 #BattlePlayer
+        self.p2 = p2 #BattlePlayer/BattleAI
         #Public channel of match. will PM members for moves.
         self.client = client
         self.fight_channel = fight_channel
@@ -36,8 +37,7 @@ class Battle:
         p1_status_str = ''
         for s in p1_status:
             p1_status_str += '['+s+']'
-        p1_poke_ln = p1_poke.poke.name +' '+ p1_status_str
-        
+        p1_poke_ln = f'Lvl.{p1_poke.poke.level} {p1_poke.poke.name} {p1_status_str}'
         p2_poke = self.p2.curr_party[self.p2.active_poke]
         p2_hp_bars = math.floor((p2_poke.curr_hp/p2_poke.poke.get_hp()) * 10) #TODO: FIX
         p2_bar_str = '-'*(10-p1_hp_bars) + '#'*p1_hp_bars
@@ -45,8 +45,7 @@ class Battle:
         p2_status_str = ''
         for s in p2_status:
             p2_status_str += '['+s+']'
-        p2_poke_ln = p2_status_str+' '+ p2_poke.poke.name
-        
+        p2_poke_ln = f'Lvl.{p2_poke.poke.level} {p2_poke.poke.name} {p2_status_str}'
         maxlen = max(len(p2_poke_ln),len(p2_bar_str),len(p1_poke_ln),len(p1_bar_str)) + 10
         p1_bar_str = p1_bar_str + ' '*(maxlen-len(p1_bar_str))
         p1_poke_ln = p1_poke_ln + ' '*(maxlen-len(p1_poke_ln))
@@ -59,7 +58,7 @@ class Battle:
         output += p2_poke_ln+'|\n|' 
         output += p2_bar_str+'|\n|' 
         output += ' '*maxlen + '|\n|'
-        output += ' '*(maxlen//2-1) + 'VS' +' '*(maxlen//2-1) + '|\n|'
+        output += ' '*(math.floor(maxlen/2)-1) + 'VS' +' '*(math.ceil(maxlen/2)-1) + '|\n|'
         output += p1_poke_ln+'|\n|' 
         output += p1_bar_str+'|\n|' 
         output += bottom_string+'|\n' 
@@ -75,7 +74,7 @@ class Battle:
             p2_move = await self.p2.get_move_decision(self.p1.curr_party[self.p1.active_poke], self.client)
             #could be Move string, "concede", or "swap_poke"
             ###Concede###
-            if   p2_move[0] == 'concede' and p1_move == 'concede':
+            if   p2_move[0] == 'concede' and p1_move[0] == 'concede':
                 pass
                 #Double Concede! match ends in a tie. (Gym challenger loses)
                 return
@@ -317,9 +316,12 @@ class BattleAI:
     #AM ROBOT BEEP BOOP
     def is_ai(self):
         return True
+        
+    #this is different than the Battleplayer method
     def get_name(self):
         return self.name
-        
+    
+    #based on the chosen strategy, choose a move
     async def get_move_decision(self, other_poke, client=None):
         if self.strategy=='RAND':
             moves = self.curr_party[self.active_poke].poke.moves
@@ -332,6 +334,40 @@ class BattleAI:
             print(f'Swapped to: {self.active_poke}')
             #TODO: Fix infinite loop on last dead
 
-#loads a json file describing an npc ai.            
-def load_battle_ai_file(ai_id):
+#loads a json file describing an npc ai. 
+#id is their name in lowercase, puct removed, spaces replaced with _, numbers after duplicates
+def load_npc_file(ai_id):
+    if ai_id not in [name.stem for name in NPC_PATH.iterdir()]:
+        raise FileNotFoundError
+        return
+    with open( NPC_PATH / (ai_id + '.txt')) as f:
+        data = json.load(f)
+    name = data['name']
+    winquote = data['winquote']
+    lossquote = data['lossquote']
+    bounty = data['bounty']
+    ai_mode = data['ai_mode']
+    party = [instances.read_pokedict(p) for p in data['party']]
+    return BattleAI(name, party, ai_mode, winquote, lossquote)
+    
+async def ai_exhibition(client, message, ai_id):
+    ai_id = regex.sub(r'[ \t]+$','', ai_id)
+    ai_id = regex.sub(r'[^\w\s]','',ai_id)
+    ai_id = regex.sub(r'[\s]','_',ai_id)
+    ai_id = ai_id.lower()
+    try:
+        npc = load_npc_file(ai_id)
+    except FileNotFoundError:
+        await client.send_message(message.channel, "Error. Tried to fight someone that doesn't exist")
+        return
+    try:
+        player = BattlePlayer(instances.read_playerfile(message.author.id), message.author)
+    except Exception:
+        await client.send_message(message.channel, 'Error...you dont exist?')
+        return
+    bat = Battle(player, npc, client, message.channel)
+    await bat.play_battle()
+    
+    
+    
     

@@ -1,6 +1,6 @@
-import discord, os, instances, json, asyncio, traceback, pprint
+import discord, os, instances, json, asyncio, traceback, pprint, regex
 import math, random, time, datetime
-import battle as bat
+import battle
 from poke_data import *
 from pathlib import Path
 cooldown = 3600 #seconds, == 1 hour
@@ -59,6 +59,8 @@ async def on_message(message):
                     await party_details(message)
                 elif cmd == 'testfight':
                     await test_fight(message)
+                elif cmd.startswith('fight'):
+                    await npc_test(message)
             except KeyboardInterrupt as k:
                 raise k
             except Exception as e:
@@ -523,17 +525,22 @@ async def party_details(message):
 #Params: NONE
 async def test_fight(message):
     player = instances.read_playerfile(message.author.id)
-    p1 = bat.BattlePlayer(player, message.author)
+    p1 = battle.BattlePlayer(player, message.author)
     robot_poke = p1.curr_party[0].poke.to_dict()
     robot_poke['name'] += '_bot'
     robot_poke = instances.read_pokedict(robot_poke)
-    p2 = bat.BattleAI('Mr. Roboto',
+    p2 = battle.BattleAI('Mr. Roboto',
                       [robot_poke],
                       'RAND',
                       'Hey, I won!',
                       'Hey, You won!')
-    battle = bat.Battle(p1, p2, client, message.channel)
-    await battle.play_battle()
+    battle_instance = battle.Battle(p1, p2, client, message.channel)
+    await battle_instance.play_battle()
+
+#fight a specific npc for no money or xp    
+async def npc_test(message):
+    npc_id = message.content[7:]
+    await battle.ai_exhibition(client, message, npc_id)
     
 #Helper funct to display the current catching location
 async def show_loc(message):

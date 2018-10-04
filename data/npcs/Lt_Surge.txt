@@ -53,5 +53,5 @@
 "winquote" : "Not so shocking, I win! Try again some other time, kid.", 
 "lossquote": "Now that's a shocker! You're the real deal, kid! Fine, then, take the ThunderBadge!", 
 "bounty": 2400, 
-"ai_mode": "trainer"
+"ai_mode": "RAND"
 }
