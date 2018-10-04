@@ -23,6 +23,7 @@ class Battle:
         self.p1 = p1 #BattlePlayer
         self.p2 = p2 #BattlePlayer/BattleAI
         #Public channel of match. will PM members for moves.
+        self.weather = 'clear'
         self.client = client
         self.fight_channel = fight_channel
         
@@ -182,11 +183,37 @@ class Battle:
         old_hp = r_poke.curr_hp
         output = f'{a_poke.poke.name} uses {move}!\n'
         #this is gonna be a doozy to implement.
+        
         #For now, just do 1-30 damage
         if move=='test_move':
             r_poke.curr_hp -= random.randrange(1, 30)
             output += f'{r_poke.poke.name} takes {old_hp - r_poke.curr_hp} damage!'
+        move_data = get_move(move)
+        #vanilla damage move
+        elif 'Inflicts regular damage.' in [e['effect'] for e in move_data['effect_entries']]:
+            #source: https://bulbapedia.bulbagarden.net/wiki/Damage
+            modifier = 1
+            #STAB
+            if move_data['type']['name'] in get_poke_types(a_poke.poke.id):
+                if a_poke.poke.ability == 'adaptability':
+                    modifier *= 2
+                else:
+                    modifier *= 1.5
+            #random factor
+            modifier *= random.uniform(0.85, 1.00)
+            #type effectiveness
+            modifier *= get_type_modifier(move_data['type']['name'],get_poke_types(r_poke.poke.id))
+            #burn phys damage reduction
+            #TODO
+            #other?
+            dmg = ((((2*a_poke.poke.level)/5 + 2) * move_data['power'])/50 + 2) * modifier
+            r_poke.curr_hp -= dmg
+        else:
+            output += 'Unfortunatly, the dev has not implemented this move yet.'
         return output
+        
+    def get_type_modifier(movetype, other_poke_types):
+        pass #TODO
         
 #wrapper for player that has BattleMon Party
 #If one player is an ai, then that player must be p2
