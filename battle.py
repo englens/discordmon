@@ -92,9 +92,9 @@ class Battle:
             #At this point, we can be sure that no player is conceding    
             ###Swap###
             if p1_move[0] == 'swap':   #p1 always swaps first, it doesnt really matter anyway
-                await self.swap_display(self.p1, p1_move[1], self.p1.curr_party[self.p1.active_poke])
+                await self.swap_display(self.p1, self.p1.curr_party[p1_move[1]], self.p1.curr_party[self.p1.active_poke])
             if p2_move[0] == 'swap':
-                await self.swap_display(self.p2, p2_move[1], self.p2.curr_party[self.p2.active_poke])
+                await self.swap_display(self.p2, self.p2.curr_party[p2_move[1]], self.p2.curr_party[self.p2.active_poke])
 
             ###Attack###
             if p1_move[0] == 'attack' and p2_move[0] == 'attack':
@@ -169,11 +169,11 @@ class Battle:
         
     #says the string to swap two pokemon, and shows their pictures
     async def swap_display(self, player, old_poke, new_poke):
-        output = ''
+        output = '```'
         output += f'{player.get_name()} Swaps pokemon!\n'
         output += f'"{old_poke.poke.name} Come back!"\n'
-        output += f'"Go! {new_poke.poke.name}!"'
-        self.broadcast(output)
+        output += f'"Go! {new_poke.poke.name}!"```'
+        await self.broadcast(output)
         #TODO: Display the poke's image
         
     #execute a given move string, and reduce pp.
@@ -183,14 +183,14 @@ class Battle:
         old_hp = r_poke.curr_hp
         output = f'{a_poke.poke.name} uses {move}!\n'
         #this is gonna be a doozy to implement.
-        
-        #For now, just do 1-30 damage
         if move=='test_move':
             r_poke.curr_hp -= random.randrange(1, 30)
             output += f'{r_poke.poke.name} takes {old_hp - r_poke.curr_hp} damage!'
+            return output
+            
         move_data = get_move(move)
-        #vanilla damage move
-        elif 'Inflicts regular damage.' in [e['effect'] for e in move_data['effect_entries']]:
+        #vanilla damage move 
+        if 'Inflicts regular damage.' in [e['effect'] for e in move_data['effect_entries']]:
             #source: https://bulbapedia.bulbagarden.net/wiki/Damage
             modifier = 1
             #STAB
@@ -265,8 +265,9 @@ class BattlePlayer:
             self.pm(client, "Invalid Response.")
     
     async def swap_poke_after_death(self):
-        pass #TODO: Dialog to send out a new pokemon
-        #May make a general swapping dialog for reuse for the normal swap funct
+        await self.pm('please select a pokemon to put out.'
+        
+        
         
         
     #asks the user (thru pm) what they want to do.
@@ -297,14 +298,14 @@ class BattlePlayer:
             elif response == '4':
                 return ['attack', moves[3]]
             elif response == 'switch':
-                output = 'Select a pokemon to swap to:```'
+                output = '```Select a pokemon to swap to:'
                 #display current party pokemon (and if they're dead)
                 for i, poke in enumerate(self.curr_party):
                     if poke.dead:
                         output += f'\n{i+1} -- {poke.poke.name} (DEAD)'
                     else:
                         output += f'\n{i+1} -- {poke.poke.name}'
-                output += 'cancel -- go back```'
+                output += '\ncancel -- go back```'
                     
                 response = await self.get_input(client, ['1', '2', '3', '4', '5', '6', 'cancel'], output)
                 if response == 'cancel':
@@ -312,13 +313,13 @@ class BattlePlayer:
                 else: #1-6
                     choice = int(response)-1
                     if self.curr_party[choice].dead:
-                        self.pm('Selected pokemon has Fainted!')
+                        self.pm('Selected Pokemon has fainted! Please select a valid Pokemon.')
                     else:
                         old = self.active_poke
                         self.active_poke = choice
                         return ['swap', old]
             elif response == 'concede':
-                yn = await self.get_input(client, ['y','n','yes','no'], "Really surrender?")
+                yn = await self.get_input(client, ['y','n','yes','no'], "Really surrender? (y/n)")
                 if yn in ['y', 'yes']:
                     return ['concede']
                 #else, go back to move choice
@@ -385,7 +386,7 @@ async def ai_exhibition(client, message, ai_id):
     try:
         npc = load_npc_file(ai_id)
     except FileNotFoundError:
-        await client.send_message(message.channel, "Error. Tried to fight someone that doesn't exist")
+        await client.send_message(message.channel, f"Error. Tried to fight someone that doesn't exist\n(Tried: {ai_id}")
         return
     try:
         player = BattlePlayer(instances.read_playerfile(message.author.id), message.author)
