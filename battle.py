@@ -150,6 +150,7 @@ class Battle:
     
     #Checks for poke death, calls swtiching routines
     #Returns: False if game continues, True if game over
+    #This method actually kills the pokemon
     async def check_for_death(self, player):
         if player.curr_party[player.active_poke].curr_hp <= 0:
             old = player.curr_party[player.active_poke]
@@ -167,7 +168,7 @@ class Battle:
                 return True   #game is over
             return False   #game continues
         
-    #says the string to swap two pokemon, and shows their pictures
+    #displays the string to swap two pokemon, and shows their pictures?
     async def swap_display(self, player, old_poke, new_poke):
         output = '```'
         output += f'{player.get_name()} Swaps pokemon!\n'
@@ -219,7 +220,7 @@ class Battle:
 #If one player is an ai, then that player must be p2
 #At end of match, will check if p2 was ai and call their end code  
 class BattlePlayer:
-    def __init__(self, player, user):
+    def __init__(self, client, player, user):
         self.player = player
         self.user = user
         #curr party will stay the same size, but pokemon in it will die.
@@ -228,7 +229,7 @@ class BattlePlayer:
             self.curr_party.append(BattleMon(poke))
         self.active_poke = 0
         self.remaining_pokemon = len(self.curr_party)
-    
+        self.client = client
     #TOTALY NOT ROBOT
     def is_ai(self):
         return False
@@ -236,7 +237,7 @@ class BattlePlayer:
     def get_name(self):
         return self.player.name 
         
-    async def pm(self, client, message):
+    async def pm(self, message):
         await client.send_message(self.user, message)
         
     async def get_input(self, client, valid_responses, question):
@@ -262,14 +263,40 @@ class BattlePlayer:
                 return response  #good!
             if count > MAX_RETRYS:
                 return None  #Too many retrys
-            self.pm(client, "Invalid Response.")
+            await self.pm("Invalid Response.")
     
     async def swap_poke_after_death(self):
-        await self.pm('please select a pokemon to put out.'
-        
-        
-        
-        
+        await self.pm('please select a pokemon to put out.')
+        response = await swap_menu(force=True)
+        return old
+    #sets a new poke as curr_poke, returns previous pokemon
+    #set force to true if cancel is not an option
+    async def swap_menu(self, force):
+        done = False
+        while not done:
+            output = '```Select a pokemon to swap to:'
+            #display current party pokemon (and if they're dead)
+            for i, poke in enumerate(self.curr_party):
+                if poke.dead:
+                    output += f'\n{i+1} -- {poke.poke.name} (DEAD)'
+                else:
+                    output += f'\n{i+1} -- {poke.poke.name}'
+            if not force:
+                output += '\ncancel -- go back```'
+                response = await self.get_input(client, ['1', '2', '3', '4', '5', '6', 'cancel'], output)
+            else:
+                response = await self.get_input(client, ['1', '2', '3', '4', '5', '6'], output)
+            if response == 'cancel':
+                return 'cancel'
+            else: #1-6
+                choice = int(response)-1
+                if self.curr_party[choice].dead:
+                    await self.pm('Selected Pokemon has fainted! Please select a valid Pokemon.')
+                else:
+                    old = self.active_poke
+                    self.active_poke = choice
+                    return old
+                    
     #asks the user (thru pm) what they want to do.
     #Returns a list: first item is 'attack', 'swap', or 'concede'
     #   if attck, second is attack name
@@ -298,33 +325,19 @@ class BattlePlayer:
             elif response == '4':
                 return ['attack', moves[3]]
             elif response == 'switch':
-                output = '```Select a pokemon to swap to:'
-                #display current party pokemon (and if they're dead)
-                for i, poke in enumerate(self.curr_party):
-                    if poke.dead:
-                        output += f'\n{i+1} -- {poke.poke.name} (DEAD)'
-                    else:
-                        output += f'\n{i+1} -- {poke.poke.name}'
-                output += '\ncancel -- go back```'
-                    
-                response = await self.get_input(client, ['1', '2', '3', '4', '5', '6', 'cancel'], output)
+                response = swap_menu(False)
                 if response == 'cancel':
-                    pass #nothing to do here. loop will continue.
-                else: #1-6
-                    choice = int(response)-1
-                    if self.curr_party[choice].dead:
-                        self.pm('Selected Pokemon has fainted! Please select a valid Pokemon.')
-                    else:
-                        old = self.active_poke
-                        self.active_poke = choice
-                        return ['swap', old]
+                    #nothing to do but let the player pick another option
+                    pass 
+                else: #response will be the old poke
+                    return ['swap', response]
             elif response == 'concede':
                 yn = await self.get_input(client, ['y','n','yes','no'], "Really surrender? (y/n)")
                 if yn in ['y', 'yes']:
                     return ['concede']
                 #else, go back to move choice
             else:
-                self.pm("Invalid response.")
+                await self.pm("Invalid response.")
             
 #Looks like a player to the Battle (yay duck typing)
 #Party must be defined by creator
@@ -389,7 +402,7 @@ async def ai_exhibition(client, message, ai_id):
         await client.send_message(message.channel, f"Error. Tried to fight someone that doesn't exist\n(Tried: {ai_id}")
         return
     try:
-        player = BattlePlayer(instances.read_playerfile(message.author.id), message.author)
+        player = BattlePlayer(client, instances.read_playerfile(message.author.id), message.author)
     except Exception:
         await client.send_message(message.channel, 'Error...you dont exist?')
         return

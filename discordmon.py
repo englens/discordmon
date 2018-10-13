@@ -525,7 +525,7 @@ async def party_details(message):
 #Params: NONE
 async def test_fight(message):
     player = instances.read_playerfile(message.author.id)
-    p1 = battle.BattlePlayer(player, message.author)
+    p1 = battle.BattlePlayer(client, player, message.author)
     robot_poke = p1.curr_party[0].poke.to_dict()
     robot_poke['name'] += '_bot'
     robot_poke = instances.read_pokedict(robot_poke)
